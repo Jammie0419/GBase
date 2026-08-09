@@ -1,0 +1,70 @@
+# Gbase .gitignore
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Runtime data
+data/chat/sessions/
+data/experience.jsonl
+data/knowledge.jsonl
+data/traces/
+data/*.db
+
+# Logs
+logs/
+*.log
+
+# Backup
+*.backup
+*.bak
+*.bkp
+
+data/search_history.jsonl
+
+# Forge audit
+forge-audit-*.md
+
+# Arms
+arms/
+
+*.pyc
+__pycache__/
+.DS_Store
+
+# Internal work files — NOT for public repository
+HAMMER_TASK.md
+_audit_runner.py
+.forge_test_instructions
+
+# Internal documentation (contains personal deployment info)
+docs/WHITEPAPER.md
+docs/WHITEPAPER.pdf
+docs/WHITEPAPER.html
+
+# Agent runtime data (may contain personal memories)
+data/arms/
+data/experience.jsonl
+data/knowledge.jsonl
+data/sessions/
+data/mirror/

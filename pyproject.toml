@@ -1,0 +1,90 @@
+[project]
+name = "gbase"
+version = "0.7.0"
+description = "Universal AI Agent framework with identity separation, tool auto-registration, and multi-agent orchestration"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+keywords = ["ai", "agent", "framework", "workflow", "orchestration"]
+authors = [{ name = "Gary Lin" }]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    "httpx>=0.28.1",
+    "pyyaml>=6.0.3",
+    "beautifulsoup4>=4.14.3",
+    "aiohttp>=3.13.3",
+    "openai>=2.24.0",
+    "openpyxl>=3.1.5",
+    "python-pptx>=1.0.2",
+    "python-docx>=1.1.0",
+    "reportlab>=4.0",
+    "psutil>=5.9.0",
+]
+
+[project.scripts]
+gbase = "gbase.cli:main"
+
+[project.optional-dependencies]
+server = []  # uvicorn now in main deps
+
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "ARG", "PIE"]
+
+ignore = [
+    "E501",
+    "E402",
+    "SIM115",
+    "PLR0913",
+    "PLR0911",
+    "PLR0912",
+]
+[tool.ruff.lint.per-file-ignores]
+"lib/dag_agents.py" = ["ARG001", "ARG002"]
+"lib/mirror.py" = ["N806"]
+"lib/archive_store.py" = ["N806"]
+"lib/kernel.py" = ["N806"]
+"lib/sleep_cycle.py" = ["B007", "F841", "ARG001"]
+"lib/storage.py" = ["ARG004"]
+"lib/loop_cache.py" = ["ARG002", "B007", "SIM102"]
+"lib/daily_memory.py" = ["B007"]
+"lib/identity.py" = ["ARG001"]
+"lib/territory.py" = ["ARG001"]
+"lib/session.py" = ["ARG002"]
+"lib/sandbox_safety.py" = ["SIM110"]
+"tools/hive_mind.py" = ["ARG001", "SIM108"]
+"tools/knowledge.py" = ["F841"]
+"tools/search_bridge.py" = ["ARG001"]
+"tools/self_edit.py" = ["SIM201", "SIM108"]
+"tools/trident_tools.py" = ["SIM108"]
+"tools/security_watch.py" = ["SIM105"]
+"tools/xlsx_gen.py" = ["F821"]
+"examples/*.py" = ["N999", "W293"]
+"gbase/cli.py" = ["ARG001"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+
+[tool.isort]
+profile = "black"
+line_length = 120
+
+
+[tool.setuptools.packages.find]
+include = ["lib*", "tools*", "editions*", "gbase*"]
+exclude = ["data*", "identities*", "training_data*"]
