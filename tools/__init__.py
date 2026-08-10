@@ -59,6 +59,19 @@ def _register_new_skills():
     """注册新技能到对应 toolset。
     导入即触发 @tool 装饰器，这里只添加 keywords。
     """
+    # ── 基础对话工具集（始终可用，关键词 "*" 通配）──
+    register_toolset(
+        "chat",
+        ["*"],  # 通配：所有平台始终包含这些工具
+        [
+            "exec_command",
+            "exec_safe",
+            "my_current_path",
+            "my_project_roots",
+            "memory_status",
+        ],
+    )
+
     register_toolset(
         "test",
         ["测试", "生成测试", "单元测试", "写测试", "test", "autotest"],
@@ -477,6 +490,7 @@ def _register_new_skills():
             "anchor",
             "doc",
             "image",
+            "sessions",
         ],
     )
     register_platform_map(
@@ -498,6 +512,7 @@ def _register_new_skills():
             "note",
             "anchor",
             "doc",
+            "sessions",
         ],
     )
     register_platform_map(
@@ -521,6 +536,27 @@ def _register_new_skills():
             "note",
             "feishu_card",
             "anchor",
+            "doc",
+            "sessions",
+        ],
+    )
+    # ── Web UI 平台（精选工具集，避免 124 个工具淹没 LLM 注意力）──
+    register_platform_map(
+        "webchat",
+        [
+            "chat",
+            "web",
+            "read",
+            "brain",
+            "path",
+            "code",
+            "safe_write",
+            "mirror",
+            "note",
+            "anchor",
+            "sessions",
+            "self",
+            "reminder",
             "doc",
         ],
     )
