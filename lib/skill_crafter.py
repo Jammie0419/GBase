@@ -122,7 +122,8 @@ class SkillCrafter:
             # 统计每条规则出现的次数
             rule_counts = {}
             for exp in experiences:
-                rule = exp.get("rule", "")
+                content = exp.get("content", {})
+                rule = content.get("rule", "") if isinstance(content, dict) else ""
                 if rule:
                     rule_counts[rule] = rule_counts.get(rule, 0) + 1
 

@@ -20,14 +20,18 @@ from lib.toolkit import get_global, tool
 logger = logging.getLogger(__name__)
 
 
-async def _async_evolution_check(evolution_engine, rel_path: str, abs_path: str, content: str):
+async def _async_evolution_check(evolution_engine, rel_path: str, abs_path: str, content: str, old_size: int):
     """异步执行进化引擎评估（不阻塞工具返回）。"""
     try:
         import asyncio
+        from lib.evolution_engine import full_evolution_cycle
 
-        # 在线程池中执行同步的进化评估
+        # 计算新文件大小
+        new_size = len(content.encode("utf-8"))
+
+        # 直接调用进化周期函数，传入已捕获的旧大小（避免重复读取/写入）
         result = await asyncio.to_thread(
-            evolution_engine.check_and_evolve, abs_path, content
+            full_evolution_cycle, abs_path, old_size, new_size, content
         )
         if result and result.get("conclusion"):
             logger.info(
@@ -142,6 +146,14 @@ async def write_file(filepath: str, content: str, mode: str = "w") -> dict:
             tag = "🔴检查点" if is_core else "📦备份"
             backup_note = f"\n{tag}: 原File已备份到 {BACKUP_DIR}/{backup_id}"
 
+    # ── 自进化：写入前捕获旧文件大小（用于进化引擎评估）──
+    old_size = 0
+    if mode == "w" and os.path.exists(path):
+        try:
+            old_size = os.path.getsize(path)
+        except Exception:
+            old_size = 0
+
     try:
         with open(path, mode, encoding="utf-8") as f:
             f.write(content)
@@ -168,7 +180,7 @@ async def write_file(filepath: str, content: str, mode: str = "w") -> dict:
                 # 计算相对路径用于触发规则匹配
                 _rel_path = os.path.relpath(path, os.getcwd())
                 asyncio.create_task(
-                    _async_evolution_check(_evolution, _rel_path, path, content)
+                    _async_evolution_check(_evolution, _rel_path, path, content, old_size)
                 )
         except Exception as _evo_err:
             logger.debug("进化引擎触发失败（不阻塞主流程）: %s", _evo_err)

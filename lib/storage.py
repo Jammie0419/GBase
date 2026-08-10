@@ -227,12 +227,30 @@ class Storage:
             if type_ in ("knowledge", "experience") and row_id > 0:
                 try:
                     import asyncio
+                    import threading
                     from .self_improving import trigger_self_improving
 
-                    # 异步触发，不阻塞写入
-                    asyncio.create_task(
-                        _async_self_improving(type_, entry, summary)
-                    )
+                    # 尝试异步触发，如果不在事件循环中则用线程
+                    def _run_self_improving():
+                        try:
+                            improvements = trigger_self_improving(type_, {**entry, "summary": summary})
+                            if improvements:
+                                logger.info(
+                                    "🔧 Self-improving: %d 条改进建议 (type=%s)",
+                                    len(improvements),
+                                    type_,
+                                )
+                        except Exception as e:
+                            logger.debug("self-improving 异常（不影响主流程）: %s", e)
+
+                    try:
+                        # 尝试获取当前事件循环
+                        loop = asyncio.get_running_loop()
+                        # 如果在事件循环中，创建异步任务
+                        asyncio.create_task(_async_self_improving(type_, entry, summary))
+                    except RuntimeError:
+                        # 没有运行中的事件循环，使用线程
+                        threading.Thread(target=_run_self_improving, daemon=True).start()
                 except Exception as _si_err:
                     logger.debug("self-improving 触发失败（不影响写入）: %s", _si_err)
 

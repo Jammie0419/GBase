@@ -32,11 +32,17 @@ from lib.toolkit import get_global, tool
 logger = logging.getLogger(__name__)
 
 
-async def _async_evolution_check(evolution_engine, rel_path: str, abs_path: str, content: str):
+async def _async_evolution_check(evolution_engine, rel_path: str, abs_path: str, content: str, old_size: int):
     """异步执行进化引擎评估（不阻塞工具返回）。"""
     try:
+        from lib.evolution_engine import full_evolution_cycle
+
+        # 计算新文件大小
+        new_size = len(content.encode("utf-8"))
+
+        # 直接调用进化周期函数，传入已捕获的旧大小（避免重复读取/写入）
         result = await asyncio.to_thread(
-            evolution_engine.check_and_evolve, abs_path, content
+            full_evolution_cycle, abs_path, old_size, new_size, content
         )
         if result and result.get("conclusion"):
             logger.info("🧬 进化引擎评估 %s: %s", rel_path, result["conclusion"])
@@ -163,6 +169,9 @@ async def self_edit(
 
     original = abs_path.read_text(encoding="utf-8")
 
+    # ── 自进化：修改前捕获旧文件大小 ──
+    old_size = len(original.encode("utf-8"))
+
     # ── 模式选择 ──
     if old and new:
         # A: 精确替换
@@ -237,7 +246,7 @@ async def self_edit(
             _rel_path = str(abs_path.relative_to(_INSTANCE_HOME))
             _new_content = abs_path.read_text(encoding="utf-8")
             asyncio.create_task(
-                _async_evolution_check(_evolution, _rel_path, str(abs_path), _new_content)
+                _async_evolution_check(_evolution, _rel_path, str(abs_path), _new_content, old_size)
             )
     except Exception as _evo_err:
         logger.debug("进化引擎触发失败（不阻塞主流程）: %s", _evo_err)
