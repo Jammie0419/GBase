@@ -91,6 +91,43 @@ seed_knowledge()
 减少工具调用次数，提高效率。
 """,
     },
+    {
+        "rule": "missing_tool",
+        "threshold": 2,  # 出现 2 次就触发（说明反复缺同一类工具）
+        "skill_name": "auto-tool-creator",
+        "skill_title": "自动工具创建指南",
+        "description": "当缺少专用工具导致反复失败时，指导 agent 创建专用工具到 tools/ 目录",
+        "triggers": ["缺少工具", "missing_tool", "创建工具", "专用工具", "工具不够用"],
+        "solution_template": """# 自动工具创建指南
+
+## 触发条件
+当检测到任务因缺少专用工具导致 10+ 次工具调用失败时触发。
+
+## 解决流程
+1. **分析失败模式** — 回顾 trace，找出 agent 反复尝试做什么
+2. **确定工具接口** — 定义工具名、参数、返回值
+3. **创建工具文件** — 在 `tools/` 下创建 `xxx.py`
+4. **注册到工具集** — 在 `tools/__init__.py` 中 `from . import xxx` 并 `register_toolset()`
+5. **语法验证** — `python -c "import py_compile; py_compile.compile('tools/xxx.py', doraise=True)"`
+
+## 工具模板
+```python
+from lib.toolkit import tool
+
+@tool()
+async def my_new_tool(param1: str, param2: int = 10) -> dict:
+    \"\"\"工具描述（agent 根据这个决定是否调用）。\"\"\"
+    # 实现逻辑
+    return {"result": "...", "ok": True}
+```
+
+## 注意事项
+- 工具函数必须是 async 或用 run_in_executor 包装同步调用
+- 返回值必须是 dict（kernel 会自动 JSON 序列化）
+- `"error"` 字段只有真正出错时才设置非 None 值
+- `"ok"` 字段必须准确反映执行结果
+""",
+    },
 ]
 
 

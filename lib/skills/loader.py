@@ -13,6 +13,8 @@ Skill 加载器 — 从 skills/ 目录读取 SKILL.md 文件。
 import logging
 from pathlib import Path
 
+from lib.compat import GBASE_SKILLS_DIR
+
 logger = logging.getLogger(__name__)
 
 
@@ -62,22 +64,36 @@ class SkillLoader:
         return result
 
     def load(self):
-        """扫描 skills/ 目录，加载所有 skill。"""
+        """扫描 skills/ 和 .gbase/skills/ 目录，加载所有 skill。"""
         if self._loaded:
             return
         self._index = []
         self._contents = {}
 
-        if not self.skills_dir.is_dir():
-            logger.warning("Skill 目录不存在: %s", self.skills_dir)
-            self._loaded = True
-            return
+        # 扫描两个目录：静态技能目录 + 自进化生成的技能目录
+        scan_dirs = [self.skills_dir]
+        if GBASE_SKILLS_DIR.resolve() != self.skills_dir.resolve():
+            scan_dirs.append(GBASE_SKILLS_DIR)
 
-        for entry in sorted(self.skills_dir.iterdir()):
+        for base_dir in scan_dirs:
+            if not base_dir.is_dir():
+                continue
+            self._scan_directory(base_dir)
+
+        self._loaded = True
+        logger.info("Skill 加载完成: %d 个 (from %s)", len(self._index), ", ".join(str(d) for d in scan_dirs if d.is_dir()))
+
+    def _scan_directory(self, base_dir: Path):
+        """扫描单个目录下的所有 skill。"""
+        for entry in sorted(base_dir.iterdir()):
             if not entry.is_dir():
                 continue
             skill_md = entry / "SKILL.md"
             if not skill_md.exists():
+                continue
+
+            # 避免重复加载同名 skill（静态目录优先）
+            if entry.name in self._contents:
                 continue
 
             try:
@@ -125,9 +141,6 @@ class SkillLoader:
             }
             self._index.append(skill_info)
             self._contents[entry.name] = content
-
-        self._loaded = True
-        logger.info("Skill 加载完成: %d 个", len(self._index))
 
     # ── 公开方法 ──
 

@@ -34,6 +34,16 @@ _RECENT_DEDUP_MIN_COUNT = 2
 # 这些规则不是静态检查，而是基于「失败模式 → 改进策略」的映射
 
 _ANTI_FRAGILE_RULES = [
+    # ── 反脆弱: 缺少专用工具（最优先：高工具调用+失败=明确缺工具）──
+    {
+        "name": "missing_tool",
+        "check": lambda ctx: (
+            ctx.get("tool_calls_count", 0) >= 10
+            and bool(ctx.get("has_failure", False))
+        ),
+        "summary": "任务因缺少专用工具导致 {tool_calls_count} 次工具调用后仍未完成（{failed_approach}），考虑创建专用工具",
+        "confidence": "high",
+    },
     {
         "name": "tool_excessive",
         "check": lambda ctx: ctx.get("tool_calls_count", 0) > 5,
@@ -257,7 +267,7 @@ class ExperienceEngine:
 
             # --- 自进化闭环：触发技能工匠分析经验模式 ---
             try:
-                from .skill_crafter import analyze_experiences_and_craft_skills
+                from ..skills.crafter import analyze_experiences_and_craft_skills
 
                 new_skills = analyze_experiences_and_craft_skills(self.storage)
                 if new_skills:
