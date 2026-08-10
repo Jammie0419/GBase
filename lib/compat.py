@@ -64,6 +64,7 @@ GBASE_PIPELINES_DIR = GBASE_DATA_DIR / "pipelines"      # quality gate records
 GBASE_DAG_DIR = GBASE_DATA_DIR / "dag-workflows"        # DAG workflow definitions
 GBASE_NOTES_DIR = GBASE_DATA_DIR / "notes"              # session notes
 GBASE_ARCHIVE_TRASH_DIR = GBASE_DATA_DIR / "archive_trash"  # deleted archive records
+GBASE_TOOLS_DIR = GBASE_DATA_DIR / "tools"              # 项目级自定义工具（覆盖框架默认）
 
 
 # -- Environment Variable Helpers -----------------------------------------

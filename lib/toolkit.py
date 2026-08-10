@@ -162,6 +162,9 @@ _tool_health_issues: list[str] = []  # 工具注册/验证过程中发现的问�
 _tool_metadata: dict[str, dict] = {}
 """{tool_name: {name, description, parameters}}"""
 
+_gbase_tool_names: set[str] = set()
+"""从 .gbase/data/tools/ 加载的工具名（项目级覆盖，始终可用）"""
+
 _toolsets: dict[str, dict] = {}
 """{
     "toolset_name": {
@@ -419,6 +422,9 @@ def resolve_tools(platform: str, user_message: str | list | dict) -> list[dict]:
         web_ts = _toolsets.get("web", {})
         matched_tools.update(web_ts.get("tools", []))
 
+    # 项目级工具始终可用（.gbase/data/tools/ 中加载的）
+    matched_tools.update(_gbase_tool_names)
+
     # 转成 OpenAI tool format
     defs = []
     for name in matched_tools:
@@ -464,37 +470,64 @@ def _all_tool_defs() -> list[dict]:
 
 
 def auto_scan(path: str = "tools"):
-    """自动扫描 tools/ 目录下的所有 .py 文件并 import（触发 @tool 延迟注册）。
+    """自动扫描 tools/ 和 .gbase/data/tools/ 目录下的 .py 文件并 import。
 
-    企业模式 (2026-06-15): 加载后验证每个工具 callable + schema 完整性，
-    记录问题到 _tool_health_issues 供 /health 暴露。
+    加载顺序：先 tools/（框架默认），后 .gbase/data/tools/（项目覆盖）。
+    同名工具以 .gbase/ 为准，保证项目级自定义优先。
     """
     import importlib
+    import importlib.util
     import os
+
+    from lib.compat import GBASE_TOOLS_DIR
 
     global _tool_health_issues
     _tool_health_issues = []
 
-    tools_dir = path
-    if not os.path.isdir(tools_dir):
-        _tool_health_issues.append(f"工具目录不存在: {tools_dir}")
-        logger.warning("工具目录不存在: %s", tools_dir)
-        return
+    # 构建扫描列表：框架默认 → 项目覆盖
+    scan_dirs = [path]
+    gbase_tools = str(GBASE_TOOLS_DIR)
+    if os.path.abspath(gbase_tools) != os.path.abspath(path):
+        os.makedirs(gbase_tools, exist_ok=True)  # 预创建，方便 agent 写入
+        scan_dirs.append(gbase_tools)
 
-    # 扫描目录下的所有 Python 文件
-    for fname in sorted(os.listdir(tools_dir)):
-        if fname.endswith(".py") and not fname.startswith("_"):
-            mod_name = fname[:-3]
-            spec = importlib.util.spec_from_file_location(mod_name, os.path.join(tools_dir, fname))
-            if spec and spec.loader:
-                try:
-                    spec.loader.exec_module(importlib.util.module_from_spec(spec))
-                    logger.debug("加载工具文件: %s", fname)
-                except Exception as e:
-                    _tool_health_issues.append(f"导入失败 {fname}: {e}")
-                    logger.warning("加载工具文件失败 %s: %s", fname, e)
-            else:
-                _tool_health_issues.append(f"无法加载 spec: {fname}")
+    for tools_dir in scan_dirs:
+        if not os.path.isdir(tools_dir):
+            if tools_dir == path:
+                _tool_health_issues.append(f"工具目录不存在: {tools_dir}")
+                logger.warning("工具目录不存在: %s", tools_dir)
+            continue
+
+        is_override = os.path.abspath(tools_dir) == os.path.abspath(gbase_tools)
+        label = "项目覆盖" if is_override else "框架默认"
+
+        # 项目覆盖工具：记录加载前的注册表快照，加载后新增的即为 .gbase 工具
+        pre_keys = set(_tool_registry.keys()) if is_override else set()
+
+        # 扫描目录下的所有 Python 文件
+        for fname in sorted(os.listdir(tools_dir)):
+            if fname.endswith(".py") and not fname.startswith("_"):
+                mod_name = fname[:-3]
+                # 项目覆盖工具用 _gbase_ 前缀避免模块名冲突
+                if is_override:
+                    mod_name = f"_gbase_{mod_name}"
+                spec = importlib.util.spec_from_file_location(mod_name, os.path.join(tools_dir, fname))
+                if spec and spec.loader:
+                    try:
+                        spec.loader.exec_module(importlib.util.module_from_spec(spec))
+                        logger.debug("加载工具文件 [%s]: %s", label, fname)
+                    except Exception as e:
+                        _tool_health_issues.append(f"导入失败 {fname} ({label}): {e}")
+                        logger.warning("加载工具文件失败 [%s] %s: %s", label, fname, e)
+                else:
+                    _tool_health_issues.append(f"无法加载 spec: {fname}")
+
+        # 项目覆盖目录加载完毕：记录新增的工具名
+        if is_override:
+            new_tools = set(_tool_registry.keys()) - pre_keys
+            _gbase_tool_names.update(new_tools)
+            if new_tools:
+                logger.info("项目工具加载: %s (%d 个)", ", ".join(sorted(new_tools)), len(new_tools))
 
     # 加载后验证：每个已注册工具必须 callable + schema 完整
     _validate_tool_registry()
