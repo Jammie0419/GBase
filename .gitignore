@@ -29,10 +29,14 @@ data/chat/sessions/
 data/experience.jsonl
 data/knowledge.jsonl
 data/traces/
+data/reviews/
 data/*.db
 data/*.db-shm
 data/*.db-wal
 data/notes/
+data/logs/
+data/metrics/
+data/archive_trash/
 
 # Logs
 logs/
@@ -72,3 +76,8 @@ data/knowledge.jsonl
 data/skill_usage.jsonl
 data/sessions/
 data/mirror/
+
+# Agent logs
+logs/
+evolution-log.md
+self-improving-log.md
