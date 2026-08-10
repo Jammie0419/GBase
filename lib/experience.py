@@ -59,6 +59,17 @@ _ANTI_FRAGILE_RULES = [
         "summary": "执行回滚: [{rollback_action}] 验证失败，已回滚。这条路走不通。",
         "confidence": "medium",
     },
+    # ── 反脆弱: 知识检索失败（知识库缺失关键信息）──
+    {
+        "name": "knowledge_miss",
+        "check": lambda ctx: (
+            ctx.get("knowledge_hit_count") is not None
+            and ctx.get("knowledge_hit_count") == 0
+            and ctx.get("tool_calls_count", 0) >= 3  # 工具调用较多，说明确实在找信息
+        ),
+        "summary": "知识检索未命中（工具调用{tool_calls_count}次），知识库可能缺少相关信息，考虑导入项目文档或记录关键知识",
+        "confidence": "high",
+    },
     # ── 反脆弱: 成功模式提炼（成功比失败更需要分析）──
     {
         "name": "success_pattern",
@@ -174,6 +185,7 @@ class ExperienceEngine:
         rollback_occurred: bool = False,
         rollback_action: str = "",
         tool_errors_summary: str = "",
+        knowledge_hit_count: int = None,
         llm_client=None,  # noqa: ARG002
     ):
         """从一次对话中提取经验。先跑规则 → 去重 → 入队待处理。由 cron 批量处理。"""
@@ -197,6 +209,7 @@ class ExperienceEngine:
             "tool_errors_summary": tool_errors_summary or "",
             "task_theme": task_theme or "未知任务",
             "is_successful_task": not has_api_error and not has_failure and tool_calls_count > 0,
+            "knowledge_hit_count": knowledge_hit_count,
         }
 
         # 第一阶段：规则提取（快速通道）
@@ -242,6 +255,16 @@ class ExperienceEngine:
             except Exception:
                 pass
 
+            # --- 自进化闭环：触发技能工匠分析经验模式 ---
+            try:
+                from .skill_crafter import analyze_experiences_and_craft_skills
+
+                new_skills = analyze_experiences_and_craft_skills(self.storage)
+                if new_skills:
+                    logger.info("🔧 技能工匠自动创建: %s", ", ".join(new_skills))
+            except Exception as _craft_err:
+                logger.debug("技能工匠触发失败（不阻塞主流程）: %s", _craft_err)
+
             return
 
         # 噪音过滤：只有深度工作/异常信号才入待处理队列
@@ -252,7 +275,7 @@ class ExperienceEngine:
         import os as _os
 
         _os.makedirs(_os.path.dirname(self._pending_file), exist_ok=True)
-        with open(self._pending_file, "a") as _f:
+        with open(self._pending_file, "a", encoding="utf-8") as _f:
             _f.write(_json.dumps(context, ensure_ascii=False) + "\n")
 
     async def flush(self, llm_client=None):
@@ -264,7 +287,7 @@ class ExperienceEngine:
             logger.debug("经验提取（flush）: 无待处理文件")
             return
         contexts = []
-        with open(self._pending_file) as _f:
+        with open(self._pending_file, encoding="utf-8") as _f:
             for _l in _f:
                 _l = _l.strip()
                 if _l:

@@ -68,7 +68,7 @@ async def qa_double_check(
         # 白盒检查要点
         white_findings = []
         try:
-            with open(code_file) as f:
+            with open(code_file, encoding="utf-8") as f:
                 source = f.read()
         except Exception as e:
             source = f"<无法读取: {e}>"

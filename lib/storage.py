@@ -18,6 +18,25 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+
+async def _async_self_improving(entry_type: str, entry_data: dict, summary: str):
+    """异步触发 self-improving 分析（不阻塞写入）。"""
+    try:
+        from .self_improving import trigger_self_improving
+
+        # 构建完整的 entry 包含 summary
+        full_entry = {**entry_data, "summary": summary}
+        improvements = trigger_self_improving(entry_type, full_entry)
+        if improvements:
+            logger.info(
+                "🔧 Self-improving: %d 条改进建议 (type=%s)",
+                len(improvements),
+                entry_type,
+            )
+    except Exception as e:
+        logger.debug("self-improving 异常（不影响主流程）: %s", e)
+
+
 DATA_DIR = Path(__file__).parent.parent / "data"
 DB_PATH = DATA_DIR / "dat.db"
 
@@ -203,6 +222,20 @@ class Storage:
             self._maybe_checkpoint()
 
             logger.debug("写入 %s[%d]: %s", type_, row_id, summary[:60])
+
+            # ── 自进化：知识/经验写入后触发 self-improving ──
+            if type_ in ("knowledge", "experience") and row_id > 0:
+                try:
+                    import asyncio
+                    from .self_improving import trigger_self_improving
+
+                    # 异步触发，不阻塞写入
+                    asyncio.create_task(
+                        _async_self_improving(type_, entry, summary)
+                    )
+                except Exception as _si_err:
+                    logger.debug("self-improving 触发失败（不影响写入）: %s", _si_err)
+
             return row_id
 
     # ── 读取 ────────────────────────────────────────────

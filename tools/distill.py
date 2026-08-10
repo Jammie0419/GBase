@@ -287,7 +287,7 @@ def _do_push(model: str = "opprime-7b"):
     if safetensors:
         content += f"ADAPTER {safetensors}\n"
     content += 'TEMPLATE """{{ .Prompt }}"""'
-    with open(mf, "w") as f:
+    with open(mf, "w", encoding="utf-8") as f:
         f.write(content)
 
     logger.info("创建蒸馏模型: %s", target_name)

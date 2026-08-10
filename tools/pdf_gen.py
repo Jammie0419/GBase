@@ -32,6 +32,7 @@ from reportlab.platypus import (
 )
 
 from lib.toolkit import tool
+from lib.compat import IS_MACOS, IS_WINDOWS
 
 logger = logging.getLogger(__name__)
 
@@ -44,15 +45,13 @@ CN_BOLD = "STHeiti-Bold"
 
 def _register_fonts():
     """Register Chinese fonts, cross-platform."""
-    import sys
-    
     # Search paths for Chinese fonts by platform
     _font_candidates = []
-    if sys.platform == "darwin":
+    if IS_MACOS:
         _font_candidates = [
             ("/System/Library/Fonts/STHeiti Light.ttc", "/System/Library/Fonts/STHeiti Medium.ttc"),
         ]
-    elif sys.platform == "win32":
+    elif IS_WINDOWS:
         _font_candidates = [
             ("C:/Windows/Fonts/msyh.ttc", "C:/Windows/Fonts/msyhbd.ttc"),  # Microsoft YaHei
             ("C:/Windows/Fonts/simsun.ttc", "C:/Windows/Fonts/simsun.ttc"),  # SimSun

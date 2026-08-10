@@ -223,6 +223,9 @@ def tool(name: str = "", description: str = "", parameters: dict | None = None):
             for pname, param in sig.parameters.items():
                 if pname in ("self", "cls"):
                     continue
+                # 跳过 *args 和 **kwargs — 不应出现在工具 schema 中
+                if param.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
+                    continue
                 if param.default is inspect.Parameter.empty:
                     required.append(pname)
                 ptype = "string"
@@ -330,6 +333,14 @@ async def execute(tool_name: str, args: dict, use_cache: bool = False) -> dict:
     if not func:
         return _standard_return(False, error=f"未知工具: {tool_name}")
     try:
+        # 防御：过滤函数签名中不存在的参数（防止 LLM 传入多余 kwargs）
+        _sig = inspect.signature(func)
+        _valid = {p for p in _sig.parameters
+                  if _sig.parameters[p].kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)}
+        _has_var_kw = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in _sig.parameters.values())
+        if not _has_var_kw:
+            args = {k: v for k, v in args.items() if k in _valid}
+
         if asyncio.iscoroutinefunction(func):
             result = await func(**args)
         else:

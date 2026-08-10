@@ -85,7 +85,7 @@ def _load_env():
     env_path = Path(__file__).parent / ".env"
     if not env_path.exists():
         return
-    with open(env_path) as f:
+    with open(env_path, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line or line.startswith("#") or "=" not in line:
@@ -115,7 +115,7 @@ from lib.scheduler import CronScheduler
 from lib.skill_loader import SkillLoader
 from lib.skill_router import SkillRouter
 from lib.storage import Storage
-from lib.toolkit import auto_scan, set_global
+from lib.toolkit import auto_scan, get_global, set_global
 from lib.village_connector import VillageConnector
 from tools import register_default
 
@@ -135,6 +135,18 @@ _MODEL_ALIASES = {
     "ds": "qwen3.7-plus",
     "minimax": "MiniMax-M3",
 }
+
+# DashScope 模型名 → DeepSeek 官方 API 模型名
+# 当使用 OPPRIME_DEEPSEEK_API_KEY 直连时，需要把阿里云特有的模型名映射过来
+# 未列在其中的模型名原样透传，由 API 端自行处理
+_DASHSCOPE_TO_DEEPSEEK = {
+    "deepseek-r1": "deepseek-reasoner",
+}
+
+
+def _remap_model_for_deepseek(model: str) -> str:
+    """将 DashScope/阿里云特有的模型名映射为 DeepSeek 官方 API 模型名。"""
+    return _DASHSCOPE_TO_DEEPSEEK.get(model, model)
 
 
 def _resolve_model() -> str:
@@ -335,14 +347,15 @@ async def _startup_guard(storage, mirror, channel, port):
         logger.warning("⚠️ 启动自检发现 %d 个问题: %s", len(errors), "; ".join(errors))
     else:
         logger.info("✅ 启动自检全部通过")
-        # 🚀 RSI: 启动后执行一次完整进化周期
+        # 🚀 RSI: 初始化进化引擎（实际进化由文件变更触发）
         try:
-            from lib.evolution_engine import full_evolution_cycle
+            from lib.evolution_engine import EvolutionEngine
 
-            await full_evolution_cycle()
-            logger.info("🚀 RSI 进化周期完成")
+            evo_engine = EvolutionEngine()
+            set_global("evolution_engine", evo_engine)
+            logger.info("🚀 进化引擎已就绪: %s", evo_engine.get_status())
         except Exception as evo_e:
-            logger.warning("⚠️ RSI 进化周期异常: %s", evo_e)
+            logger.warning("⚠️ 进化引擎初始化异常: %s", evo_e)
 
 
 async def _periodic_wal_checkpoint(storage):
@@ -401,21 +414,27 @@ async def _run_web(port: int = 8775):
     mstats = mirror.get_stats()
     logger.info("鉴面引擎: %d 活跃记忆, %d 已遗忘", mstats["total_active"], mstats["total_forgotten"])
 
-    # ── LLM 客户端 ──
+    # ── LLM 客户端（优先级：MiniMax > 阿里云百炼 > DeepSeek） ──
     model = _resolve_model()
     minimax_key = os.environ.get("OPPRIME_MINIMAX_API_KEY", "")
-    aliyun_key = os.environ.get("GBASE_ALIYUN_API_KEY", "PLACEHOLDER_CHANGE_ME")
+    deepseek_key = os.environ.get("OPPRIME_DEEPSEEK_API_KEY", "")
+    aliyun_key_raw = os.environ.get("GBASE_ALIYUN_API_KEY", "")
+    aliyun_key = aliyun_key_raw if aliyun_key_raw and aliyun_key_raw != "PLACEHOLDER_CHANGE_ME" else ""
 
     if minimax_key:
         client = AsyncOpenAI(api_key=minimax_key, base_url="https://api.minimaxi.com/v1")
         logger.info("LLM: MiniMax (%s)", model)
-    else:
-        if not aliyun_key:
-            logger.error("请设置 GBASE_ALIYUN_API_KEY 或 OPPRIME_MINIMAX_API_KEY")
-            print("❌ Error: 请设置 API Key")
-            return
+    elif aliyun_key:
         client = AsyncOpenAI(api_key=aliyun_key, base_url="https://dashscope.aliyuncs.com/compatible-mode/v1")
         logger.info("LLM: 阿里云百炼 (%s)", model)
+    elif deepseek_key:
+        model = _remap_model_for_deepseek(model)
+        client = AsyncOpenAI(api_key=deepseek_key, base_url="https://api.deepseek.com/v1")
+        logger.info("LLM: DeepSeek 直连 (%s)", model)
+    else:
+        logger.error("请设置 GBASE_ALIYUN_API_KEY、OPPRIME_MINIMAX_API_KEY 或 OPPRIME_DEEPSEEK_API_KEY")
+        print("❌ Error: 请设置至少一个 API Key")
+        return
 
     # ── 身份 + kernel ──
     identity_name = os.environ.get("IDENTITY", "default")
@@ -442,6 +461,18 @@ async def _run_web(port: int = 8775):
     set_global("experience", exp)
     auto_scan("tools")
     register_default()
+
+    # ── 定时调度器（与飞书模式对齐） ──
+    from editions import MOD_SCHEDULER
+
+    _edition = get_global("edition")
+    if _edition and MOD_SCHEDULER in _edition.modules:
+        try:
+            scheduler = CronScheduler()
+            set_global("scheduler", scheduler)
+            logger.info("定时调度器已初始化 (Web 模式)")
+        except Exception as _sched_err:
+            logger.warning("定时调度器初始化失败: %s", _sched_err)
 
     # ── WebChat 频道 ──
     try:
@@ -489,7 +520,7 @@ async def cli_mode(identity_name: str = "default"):
                 import shutil
 
                 shutil.copy2(str(src_path), str(exp_path))
-                logger.info("Armor 种子经验已复制: %s (%d 条)", exp_path, sum(1 for _ in open(exp_path)))
+                logger.info("Armor 种子经验已复制: %s (%d 条)", exp_path, sum(1 for _ in open(exp_path, encoding="utf-8")))
     storage.setup()
     exp = ExperienceEngine(storage)
 
@@ -518,20 +549,30 @@ async def cli_mode(identity_name: str = "default"):
 
     # MiniMax 通道
     minimax_key = os.environ.get("OPPRIME_MINIMAX_API_KEY", "")
+    deepseek_key = os.environ.get("OPPRIME_DEEPSEEK_API_KEY", "")
+    aliyun_key_raw = os.environ.get("GBASE_ALIYUN_API_KEY", "")
+    aliyun_key = aliyun_key_raw if aliyun_key_raw and aliyun_key_raw != "PLACEHOLDER_CHANGE_ME" else ""
+
     if minimax_key:
         client = AsyncOpenAI(api_key=minimax_key, base_url="https://api.minimaxi.com/v1")
         logger.info("LLM: MiniMax (%s)", model)
-    else:
-        aliyun_key = os.environ.get("GBASE_ALIYUN_API_KEY", "PLACEHOLDER_CHANGE_ME")
-        if not aliyun_key:
-            logger.error("请设置 GBASE_ALIYUN_API_KEY 或 OPPRIME_MINIMAX_API_KEY")
-            print("❌ Error: 请设置 API Key")
-            return
+    elif aliyun_key:
         client = AsyncOpenAI(api_key=aliyun_key, base_url="https://dashscope.aliyuncs.com/compatible-mode/v1")
         logger.info("LLM: 阿里云百炼 (%s)", model)
+    elif deepseek_key:
+        client = AsyncOpenAI(api_key=deepseek_key, base_url="https://api.deepseek.com/v1")
+        model = _remap_model_for_deepseek(model)
+        logger.info("LLM: DeepSeek 直连 (%s)", model)
+    else:
+        logger.error("请设置 GBASE_ALIYUN_API_KEY、OPPRIME_MINIMAX_API_KEY 或 OPPRIME_DEEPSEEK_API_KEY")
+        print("❌ Error: 请设置至少一个 API Key")
+        return
 
     # 自动模型路由（CLI 模式）
     routed_model = _auto_route_model("", model) if not os.environ.get("OPPRIME_MODEL") else model
+    # DeepSeek 直连时，自动路由也可能返回 DashScope 模型名，需要再映射一次
+    if deepseek_key and not minimax_key and not aliyun_key:
+        routed_model = _remap_model_for_deepseek(routed_model)
     kernel = Kernel(
         client=client,
         model=routed_model,
@@ -652,7 +693,7 @@ async def feishu_mode(identity_name: str = "default", port: int = 8420, data_dir
                 import shutil
 
                 shutil.copy2(str(src_path), str(exp_path))
-                logger.info("Armor 种子经验已复制: %s (%d 条)", exp_path, sum(1 for _ in open(exp_path)))
+                logger.info("Armor 种子经验已复制: %s (%d 条)", exp_path, sum(1 for _ in open(exp_path, encoding="utf-8")))
     storage.setup()
     exp = ExperienceEngine(storage)
 
@@ -686,7 +727,9 @@ async def feishu_mode(identity_name: str = "default", port: int = 8420, data_dir
     model = _resolve_model()
 
     minimax_key = os.environ.get("OPPRIME_MINIMAX_API_KEY", "")
-    aliyun_key = os.environ.get("GBASE_ALIYUN_API_KEY", "PLACEHOLDER_CHANGE_ME")
+    deepseek_key = os.environ.get("OPPRIME_DEEPSEEK_API_KEY", "")
+    aliyun_key_raw = os.environ.get("GBASE_ALIYUN_API_KEY", "")
+    aliyun_key = aliyun_key_raw if aliyun_key_raw and aliyun_key_raw != "PLACEHOLDER_CHANGE_ME" else ""
 
     # 判断是否走 MiniMax：模型名包含 minimax/MiniMax 时
     if "minimax" in model.lower():
@@ -696,14 +739,19 @@ async def feishu_mode(identity_name: str = "default", port: int = 8420, data_dir
             return
         client = AsyncOpenAI(api_key=minimax_key, base_url="https://api.minimaxi.com/v1")
         logger.info("LLM: MiniMax (%s)", model)
-    else:
-        # 默认走阿里云百炼（qwen3.7-plus, deepseek-v4-flash 等）
-        if not aliyun_key:
-            logger.error("阿里云百炼 API Key 未设置")
-            print("❌ 请设置 GBASE_ALIYUN_API_KEY")
-            return
+    elif aliyun_key:
+        # 优先走阿里云百炼（qwen3.7-plus, deepseek-v4-flash 等）
         client = AsyncOpenAI(api_key=aliyun_key, base_url="https://dashscope.aliyuncs.com/compatible-mode/v1")
         logger.info("LLM: 阿里云百炼 (%s)", model)
+    elif deepseek_key:
+        # DeepSeek 直连 fallback
+        model = _remap_model_for_deepseek(model)
+        client = AsyncOpenAI(api_key=deepseek_key, base_url="https://api.deepseek.com/v1")
+        logger.info("LLM: DeepSeek 直连 (%s)", model)
+    else:
+        logger.error("请设置 GBASE_ALIYUN_API_KEY、OPPRIME_MINIMAX_API_KEY 或 OPPRIME_DEEPSEEK_API_KEY")
+        print("❌ 请设置至少一个 API Key")
+        return
 
     kernel = Kernel(
         client=client,
@@ -1233,6 +1281,22 @@ async def feishu_mode(identity_name: str = "default", port: int = 8420, data_dir
 def main():
     _setup()
 
+    # ── 版本模式（所有平台共用，必须在 --web 之前加载） ──
+    if "--edition" in sys.argv:
+        idx = sys.argv.index("--edition")
+        edition_name = sys.argv[idx + 1] if len(sys.argv) > idx + 1 else "hacker"
+        edition = get_edition(edition_name)
+        os.environ["GBASE_EDITION"] = edition_name
+        set_global("edition", edition)
+        print(f"📦 GBase v0.7.0 {edition.label} ({edition_name}) — {len(edition.modules)} 模块")
+        if edition.identity:
+            os.environ["IDENTITY"] = edition.identity
+        sys.argv = sys.argv[:idx] + sys.argv[idx + 2 :]
+    else:
+        edition = get_edition("hacker")
+        os.environ["GBASE_EDITION"] = "hacker"
+        set_global("edition", edition)
+
     # ── Web 模式（--web 参数） ──
     if "--web" in sys.argv:
         web_port = int(os.environ.get("GBASE_WEB_PORT", "8775"))
@@ -1255,26 +1319,6 @@ def main():
                     web_port = int(sys.argv[pidx + 1])
             asyncio.run(_run_web(port=web_port))
             return
-
-    # ── 版本模式（--edition 参数） ──
-    if "--edition" in sys.argv:
-        idx = sys.argv.index("--edition")
-        edition_name = sys.argv[idx + 1] if len(sys.argv) > idx + 1 else "hacker"
-        edition = get_edition(edition_name)
-        os.environ["GBASE_EDITION"] = edition_name
-        # 版本信息注入到全局，各模块读 EditionConfig.enabled_modules 决定是否挂载
-        set_global("edition", edition)
-        print(f"📦 GBase v0.7.0 {edition.label} ({edition_name}) — {len(edition.modules)} 模块")
-        # 版本自带 identity
-        if edition.identity:
-            os.environ["IDENTITY"] = edition.identity
-        # 从 sys.argv 中移除 --edition 和 edition_name，避免干扰后续参数解析
-        sys.argv = sys.argv[:idx] + sys.argv[idx + 2 :]
-    else:
-        # 默认：极客版
-        edition = get_edition("hacker")
-        os.environ["GBASE_EDITION"] = "hacker"
-        set_global("edition", edition)
 
     # ── Armor 模式（--arm 参数） ──
     # python3 main.py --arm hammer [port]
@@ -1331,7 +1375,7 @@ def main():
         # 写默认 system prompt（如果没有）
         prompt_path = identity_dir / "system_prompt.txt"
         if not prompt_path.exists():
-            with open(prompt_path, "w") as f:
+            with open(prompt_path, "w", encoding="utf-8") as f:
                 f.write(_DEFAULT_ARM_PROMPTS.get(arm_name, "You are an Arm agent."))
 
         os.environ["IDENTITY"] = f"arms/{arm_name}"

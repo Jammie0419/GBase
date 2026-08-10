@@ -23,6 +23,8 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+from lib.compat import get_disk_usage_percent
+
 logger = logging.getLogger(__name__)
 
 # ── 配置 ──
@@ -258,10 +260,9 @@ def health_check() -> dict:
 
     # 磁盘空间
     try:
-        stat = shutil.disk_usage(ROOT)
-        free_gb = stat.free / (1024**3)
-        if free_gb < 0.5:
-            issues.append(f"磁盘空间不足: {free_gb:.1f}GB")
+        usage_pct = get_disk_usage_percent(ROOT)
+        if usage_pct > 99.0:
+            issues.append(f"磁盘空间不足: 使用率 {usage_pct}%")
             suggestions.append("清理日志和旧备份")
     except Exception:
         pass

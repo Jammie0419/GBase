@@ -56,7 +56,7 @@ async def analyze_log_file(file_path: str, log_format: str = "auto", slow_thresh
         # 读取 JSON 报告
         report_path = os.path.join(tempfile.gettempdir(), "opprime-log-analysis.json")
         if os.path.exists(report_path):
-            with open(report_path) as f:
+            with open(report_path, encoding="utf-8") as f:
                 report = json.load(f)
             os.remove(report_path)
             return report

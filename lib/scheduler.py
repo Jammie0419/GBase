@@ -330,7 +330,7 @@ class CronScheduler:
                 tick_count += 1
                 if tick_count % 1 == 0:  # write heartbeat every cycle (~10s, enough)
                     try:
-                        with open(HEARTBEAT_PATH, "w") as f:
+                        with open(HEARTBEAT_PATH, "w", encoding="utf-8") as f:
                             f.write(str(time.time()))
                     except Exception:
                         pass

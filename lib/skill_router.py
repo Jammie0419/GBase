@@ -201,6 +201,43 @@ class SkillRouter:
         except Exception as e:
             logger.warning("外部技能索引加载失败: %s", e)
 
+    def _record_skill_usage(self, user_input: str, matched_skills: list[dict]):
+        """记录技能匹配情况到 JSONL 文件，供后续技能进化分析。"""
+        import time
+        from pathlib import Path
+
+        try:
+            # 写入 data/skill_usage.jsonl
+            usage_file = Path(__file__).resolve().parent.parent / "data" / "skill_usage.jsonl"
+            usage_file.parent.mkdir(parents=True, exist_ok=True)
+
+            entry = {
+                "timestamp": time.time(),
+                "user_input": user_input[:200],
+                "matched_skills": [
+                    {
+                        "name": s.get("name", ""),
+                        "score": s.get("score", 0),
+                        "source": s.get("source", ""),
+                    }
+                    for s in matched_skills[:5]  # 只记录前 5 个
+                ],
+                "top_skill": matched_skills[0].get("name", "") if matched_skills else "",
+                "top_score": matched_skills[0].get("score", 0) if matched_skills else 0,
+            }
+
+            with open(usage_file, "a", encoding="utf-8") as f:
+                f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+            logger.debug(
+                "技能使用记录: top=%s (score=%.2f), 共 %d 个匹配",
+                entry["top_skill"],
+                entry["top_score"],
+                len(matched_skills),
+            )
+        except Exception as e:
+            logger.debug("技能使用记录失败: %s", e)
+
     def _tokenize(self, text: str) -> list[str]:
         """将文本拆分为 token。
 
@@ -333,7 +370,17 @@ class SkillRouter:
                 seen.add(c["name"])
                 unique.append(c)
 
-        return unique[:top_k]
+        result = unique[:top_k]
+
+        # ── 技能使用追踪 ──
+        # 记录技能匹配情况，供后续技能进化分析
+        if result:
+            try:
+                self._record_skill_usage(user_input, result)
+            except Exception as e:
+                logger.debug("技能使用追踪失败（不影响主流程）: %s", e)
+
+        return result
 
     def load_skill_content(self, skill_name: str) -> str | None:
         """加载匹配到的 Skill 的完整内容。"""

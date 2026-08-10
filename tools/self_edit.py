@@ -18,14 +18,31 @@ Core security:
 """
 
 import ast
+import asyncio
 import contextlib
 import hashlib
+import logging
 import os
 import shutil
 import time
 from pathlib import Path
 
-from lib.toolkit import tool
+from lib.toolkit import get_global, tool
+
+logger = logging.getLogger(__name__)
+
+
+async def _async_evolution_check(evolution_engine, rel_path: str, abs_path: str, content: str):
+    """异步执行进化引擎评估（不阻塞工具返回）。"""
+    try:
+        result = await asyncio.to_thread(
+            evolution_engine.check_and_evolve, abs_path, content
+        )
+        if result and result.get("conclusion"):
+            logger.info("🧬 进化引擎评估 %s: %s", rel_path, result["conclusion"])
+    except Exception as e:
+        logger.debug("进化评估异常（不影响主流程）: %s", e)
+
 
 # ── 安全范围界定 ──
 _INSTANCE_HOME = Path(__file__).resolve().parent.parent  # ~/poseidon-home/
@@ -212,6 +229,18 @@ async def self_edit(
             "backup": backup_name,
             "path": str(abs_path),
         }
+
+    # ── 自进化：自修改后触发进化引擎评估 ──
+    try:
+        _evolution = get_global("evolution_engine")
+        if _evolution:
+            _rel_path = str(abs_path.relative_to(_INSTANCE_HOME))
+            _new_content = abs_path.read_text(encoding="utf-8")
+            asyncio.create_task(
+                _async_evolution_check(_evolution, _rel_path, str(abs_path), _new_content)
+            )
+    except Exception as _evo_err:
+        logger.debug("进化引擎触发失败（不阻塞主流程）: %s", _evo_err)
 
     # ── 返回结果 ──
     return {

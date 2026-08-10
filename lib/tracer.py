@@ -174,6 +174,28 @@ def record_tool_call(
         )
 
 
+def record_refraction(tool_name: str, observation: str):
+    """记录工具调用后的步骤级反思（refraction）。
+
+    用于记录工具调用后的观察结果，供后续 trace_review 分析。
+
+    Args:
+        tool_name: 工具名称
+        observation: 观察描述（如"❌ 失败: 文件不存在"、"⏱️ 慢调用: 6000ms"）
+    """
+    global _current_trace
+    if not _current_trace:
+        return
+    entry = {
+        "_type": "refraction",
+        "tool": tool_name,
+        "observation": observation[:300],
+        "timestamp": time.time(),
+    }
+    _current_trace["steps"].append(entry)
+    _write_entry("refraction", entry)
+
+
 # ── 失败分析 ──
 
 

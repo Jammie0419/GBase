@@ -793,7 +793,7 @@ class FeishuChannel:
                 _pending_dir.mkdir(parents=True, exist_ok=True)
                 _pending_file = _pending_dir / f"{message_id}.json"
                 try:
-                    with open(_pending_file, "w") as _pf:
+                    with open(_pending_file, "w", encoding="utf-8") as _pf:
                         json.dump(
                             {
                                 "message_id": message_id,

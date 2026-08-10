@@ -218,3 +218,45 @@ def get_shell_executable() -> str | None:
     if IS_WINDOWS:
         return None  # Let Windows use cmd.exe by default
     return DEFAULT_SHELL
+
+
+# -- Shell Script Helper ---------------------------------------------------
+
+
+def run_shell_script(
+    script_path: str,
+    *args: str,
+    timeout: int = 60,
+) -> dict:
+    """跨平台运行 shell 脚本。
+
+    Windows 上自动跳过（返回 skip 状态），Unix 上用 bash 执行。
+
+    Returns:
+        {"status": "ok"|"skip"|"error", "stdout": str, "stderr": str, ...}
+    """
+    if IS_WINDOWS:
+        return {
+            "status": "skip",
+            "stdout": "",
+            "stderr": "",
+            "message": f"Shell 脚本在 Windows 上不可用: {script_path}",
+        }
+
+    try:
+        result = subprocess.run(
+            [DEFAULT_SHELL or "bash", script_path, *args],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+        return {
+            "status": "ok" if result.returncode == 0 else "error",
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+            "returncode": result.returncode,
+        }
+    except subprocess.TimeoutExpired:
+        return {"status": "error", "stdout": "", "stderr": "执行超时", "returncode": -1}
+    except FileNotFoundError:
+        return {"status": "error", "stdout": "", "stderr": f"Shell 未找到: {DEFAULT_SHELL}", "returncode": -1}

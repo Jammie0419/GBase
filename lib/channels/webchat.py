@@ -87,6 +87,15 @@ class WebChatChannel:
             await ws.accept()
             logger.info("WebSocket connected")
 
+            # Send config (model name etc.) to client on connect
+            try:
+                await ws.send_json({
+                    "type": "config",
+                    "model": getattr(self.kernel, "model", "unknown"),
+                })
+            except Exception:
+                pass
+
             try:
                 while True:
                     raw = await ws.receive_text()

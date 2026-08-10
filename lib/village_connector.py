@@ -173,3 +173,48 @@ async def start(_loop: asyncio.AbstractEventLoop = None) -> asyncio.Task:
     task = asyncio.create_task(_loop())
     logger.info("[Village] Heartbeat loop started (every %ds)", HEARTBEAT_INTERVAL)
     return task
+
+
+# ── 类封装（供 main.py 等模块以 OO 方式调用） ──
+
+
+class VillageConnector:
+    """Village OS 连接器 — 封装函数式接口为面向对象。
+
+    用法:
+        connector = VillageConnector()
+        await connector.send_message("agent-2", "hello")
+    """
+
+    def __init__(self):
+        self.enabled = ENABLED
+        self.node_name = NODE_NAME
+        self.village_name = VILLAGE_NAME
+
+    async def register_node(self):
+        """注册本节点到 Village OS。"""
+        return await register()
+
+    async def heartbeat(self):
+        """发送心跳。"""
+        return await send_heartbeat()
+
+    async def send_message(self, to: str, content: str):
+        """向另一个 Agent 发送消息。"""
+        return await send_message(to, content)
+
+    async def send_email(self, to: str, subject: str, body: str):
+        """发送邮件。"""
+        return await send_email(to, subject, body)
+
+    async def check_health(self) -> dict:
+        """检查 Village OS 健康状态。"""
+        return await check_health()
+
+    def get_status(self) -> dict:
+        """返回连接器状态。"""
+        return {
+            "enabled": self.enabled,
+            "node_name": self.node_name,
+            "village_name": self.village_name,
+        }

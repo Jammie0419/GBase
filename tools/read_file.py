@@ -33,11 +33,19 @@ else:
             "~/gstudio",
             "~/.claude",
             "~/homeassistant-latest",
-            "/Volumes/workspace",
             "~/games",
             "~/Desktop",
         ]
     ]
+
+# 始终允许读取项目自身目录（main.py 所在目录及上级）
+_PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if _PROJECT_ROOT not in _ALLOWED_PREFIXES:
+    _ALLOWED_PREFIXES.insert(0, _PROJECT_ROOT)
+# 也允许当前工作目录
+_CWD = os.path.abspath(os.getcwd())
+if _CWD not in _ALLOWED_PREFIXES:
+    _ALLOWED_PREFIXES.insert(0, _CWD)
 
 
 @tool()

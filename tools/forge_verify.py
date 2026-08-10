@@ -16,6 +16,7 @@ import sys
 from pathlib import Path
 
 from lib.toolkit import tool
+from lib.compat import IS_WINDOWS
 
 logger = logging.getLogger(__name__)
 
@@ -131,7 +132,7 @@ def _check_syntax(file_path: str, ext: str) -> tuple:
     """语法检查"""
     try:
         if ext == ".py":
-            with open(file_path) as f:
+            with open(file_path, encoding="utf-8") as f:
                 ast.parse(f.read())
             return (True, "语法正确", 40)
         elif ext in (".ts", ".tsx", ".js", ".jsx"):
@@ -140,6 +141,8 @@ def _check_syntax(file_path: str, ext: str) -> tuple:
                 return (True, "语法正确", 40)
             return (False, result["stderr"][:200], 0)
         elif ext in (".sh", ".bash"):
+            if IS_WINDOWS:
+                return (True, "Windows 跳过 shell 语法检查", 40)
             result = _run_command(["bash", "-n", file_path])
             if result["returncode"] == 0:
                 return (True, "语法正确", 40)
@@ -183,7 +186,7 @@ def _check_lint(file_path: str, ext: str) -> tuple:
 def _check_dead_code(file_path: str, ext: str) -> tuple:
     """简单死代码检测"""
     try:
-        with open(file_path) as f:
+        with open(file_path, encoding="utf-8") as f:
             content = f.read()
 
         issues = []
@@ -215,7 +218,7 @@ def _check_dead_code(file_path: str, ext: str) -> tuple:
 def _check_naming(file_path: str, ext: str) -> tuple:
     """命名规范检查"""
     try:
-        with open(file_path) as f:
+        with open(file_path, encoding="utf-8") as f:
             content = f.read()
 
         issues = []
@@ -269,7 +272,7 @@ def _check_naming(file_path: str, ext: str) -> tuple:
 def _check_readability(file_path: str, ext: str) -> tuple:
     """综合可读性检查"""
     try:
-        with open(file_path) as f:
+        with open(file_path, encoding="utf-8") as f:
             content = f.read()
             lines = content.split("\n")
 

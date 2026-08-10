@@ -12,6 +12,7 @@ import os
 import re
 
 from lib.toolkit import tool
+from lib.compat import IS_WINDOWS
 
 logger = logging.getLogger(__name__)
 SKILL_DIR = os.path.expanduser("~/.qclaw/skills")
@@ -20,6 +21,8 @@ ANCHOR_DIR = os.path.join(SKILL_DIR, "YF-anchor-keeper/scripts")
 
 async def _run_script(script_path, *args):
     """运行 shell 脚本并返回结果"""
+    if IS_WINDOWS:
+        return {"status": "skip", "message": "Shell 脚本在 Windows 上不可用"}
     cmd = ["bash", script_path] + [str(a) for a in args if a]
     try:
         proc = await asyncio.create_subprocess_exec(

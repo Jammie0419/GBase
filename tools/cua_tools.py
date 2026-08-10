@@ -123,7 +123,7 @@ async def memory_status() -> dict:
 
 
 @tool()
-async def exec_safe(command: str) -> dict:
+async def exec_safe(command: str, **_kwargs) -> dict:
     """安全执行 shell 命令，捕获输出和返回码。
 
     Args:
@@ -132,29 +132,11 @@ async def exec_safe(command: str) -> dict:
     Returns:
         执行结果（stdout/stderr/返回码/耗时）
     """
-    cmd = [
-        sys.executable,
-        os.path.expanduser("~/.qclaw/skills/YF-exec-harness/scripts/exec_safe.py"),
-        "--action",
-        "run",
-        "--cmd",
-        command,
-    ]
     try:
-        proc = await asyncio.create_subprocess_exec(
-            *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-        )
-        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=35)
-        return {
-            "success": proc.returncode == 0,
-            "output": stdout.decode("utf-8", errors="replace")[:3000],
-            "errors": stderr.decode("utf-8", errors="replace")[:500],
-            "returncode": proc.returncode,
-        }
-    except TimeoutError:
-        return {"error": "Command timed out (30s)"}
+        from lib.safe_shell import exec_command as _safe_exec
+        return await _safe_exec(command=command, timeout=30, cmdname="exec_safe")
     except Exception as e:
-        return {"error": str(e)}
+        return {"success": False, "error": str(e), "ok": False}
 
 
 @tool()

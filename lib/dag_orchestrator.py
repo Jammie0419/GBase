@@ -405,7 +405,7 @@ class DAGOrchestrator:
             ),
         }
 
-        with open(DAG_WORKFLOW_STORE, "a") as f:
+        with open(DAG_WORKFLOW_STORE, "a", encoding="utf-8") as f:
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
         self._history.append(record)

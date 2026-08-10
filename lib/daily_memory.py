@@ -48,7 +48,7 @@ def extract_key_points_from_session(session_path: str, max_entries: int = 50) ->
     if not os.path.exists(session_path):
         return []
 
-    with open(session_path) as f:
+    with open(session_path, encoding="utf-8") as f:
         lines = f.readlines()
 
     # 取最后 max_entries 行
@@ -323,7 +323,7 @@ def inject_cross_session_to_mirror(mirror_engine=None):
     seen_hash = set()
     for sess_path in sorted(today_sessions):
         try:
-            with open(sess_path) as f:
+            with open(sess_path, encoding="utf-8") as f:
                 lines = f.readlines()
         except Exception:
             continue
@@ -415,7 +415,7 @@ def get_cross_session_injections(session_dir: str = None, max_recent: int = 3) -
     seen_prefixes = set()
     for sess_path in sorted(today_sessions):
         try:
-            with open(sess_path) as f:
+            with open(sess_path, encoding="utf-8") as f:
                 lines = f.readlines()
         except Exception:
             continue

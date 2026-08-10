@@ -9,11 +9,34 @@ tools/write_file.py
 - [Evolution #7] Auto-backup before overwrite: originals saved to .backups/
 """
 
+import asyncio
+import logging
 import os
 from pathlib import Path
 
 from lib.backup import BACKUP_DIR, _is_core_file, backup_file
-from lib.toolkit import tool
+from lib.toolkit import get_global, tool
+
+logger = logging.getLogger(__name__)
+
+
+async def _async_evolution_check(evolution_engine, rel_path: str, abs_path: str, content: str):
+    """异步执行进化引擎评估（不阻塞工具返回）。"""
+    try:
+        import asyncio
+
+        # 在线程池中执行同步的进化评估
+        result = await asyncio.to_thread(
+            evolution_engine.check_and_evolve, abs_path, content
+        )
+        if result and result.get("conclusion"):
+            logger.info(
+                "🧬 进化引擎评估 %s: %s",
+                rel_path,
+                result["conclusion"],
+            )
+    except Exception as e:
+        logger.debug("进化评估异常（不影响主流程）: %s", e)
 
 # ──────────────────────────────────────────────
 # 🏡 自找家门：每个实例自动推导自己的家Directory
@@ -38,6 +61,11 @@ else:
         "/home",  # 云端DefaultDirectory
     ]
     ALLOWED_ROOTS = [_my_home] + [r for r in _common_roots if r != _my_home]
+
+# 始终允许写入当前工作目录
+_CWD = os.path.abspath(os.getcwd())
+if _CWD not in ALLOWED_ROOTS:
+    ALLOWED_ROOTS.insert(0, _CWD)
 
 
 def _resolve_path(filepath: str) -> tuple[str, str]:
@@ -132,6 +160,18 @@ async def write_file(filepath: str, content: str, mode: str = "w") -> dict:
         if backup_id:
             result["backup_id"] = backup_id
             result["restore_cmd"] = f"用 rollback_restore(backup_id='{backup_id}') 可回滚"
+
+        # ── 自进化：文件写入后触发进化引擎评估 ──
+        try:
+            _evolution = get_global("evolution_engine")
+            if _evolution and mode == "w":  # 只评估覆盖写，不评估追加
+                # 计算相对路径用于触发规则匹配
+                _rel_path = os.path.relpath(path, os.getcwd())
+                asyncio.create_task(
+                    _async_evolution_check(_evolution, _rel_path, path, content)
+                )
+        except Exception as _evo_err:
+            logger.debug("进化引擎触发失败（不阻塞主流程）: %s", _evo_err)
 
         return result
     except Exception as e:

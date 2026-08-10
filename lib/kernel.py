@@ -161,6 +161,7 @@ async def _async_extract_experience(
     dont_repeat="",
     rollback_occurred=False,
     rollback_action="",
+    knowledge_hit_count=None,
 ):
     """后台提取经验（包含反脆弱：失败经验）。"""
     try:
@@ -175,10 +176,73 @@ async def _async_extract_experience(
             dont_repeat=dont_repeat,
             rollback_occurred=rollback_occurred,
             rollback_action=rollback_action,
+            knowledge_hit_count=knowledge_hit_count,
             llm_client=client,
         )
     except Exception as e:
         logger.warning("异步经验提取异常: %s", e)
+
+
+async def _async_trace_review(trace_id: str):
+    """后台执行 trace 复盘分析（不阻塞主流程）。"""
+    try:
+        import asyncio
+
+        from .trace_review import review as _review
+
+        result = await asyncio.to_thread(_review, trace_id)
+        if result and result.get("experiences_count", 0) > 0:
+            logger.info(
+                "🔍 Trace 复盘完成: %d 条经验, %d 条建议",
+                result.get("experiences_count", 0),
+                result.get("suggestions_count", 0),
+            )
+    except Exception as e:
+        logger.debug("trace_review 异常（不影响主流程）: %s", e)
+
+
+def _observe_tool_result(
+    tool_name: str, args: dict, result: dict, has_error: bool, duration_ms: float
+) -> str:
+    """轻量级工具调用观察（refraction 基础）。
+
+    分析工具调用结果，返回观察描述（如果有值得记录的）。
+    这些观察会写入 trace，供后续 trace_review 分析。
+    """
+    observations = []
+
+    # 1. 错误观察
+    if has_error:
+        error_msg = str(result.get("error", ""))[:100]
+        observations.append(f"❌ 失败: {error_msg}")
+
+    # 2. 性能观察
+    if duration_ms > 5000:  # 超过 5 秒
+        observations.append(f"⏱️ 慢调用: {duration_ms:.0f}ms")
+
+    # 3. 结果大小观察
+    result_str = json.dumps(result, ensure_ascii=False)
+    if len(result_str) > 10000:  # 超过 10KB
+        observations.append(f"📦 大结果: {len(result_str)} 字符")
+
+    # 4. 特定工具的观察
+    if tool_name in ("read_file", "self_edit_read_source"):
+        if not has_error and "content" in result:
+            content_len = len(result.get("content", ""))
+            if content_len > 5000:
+                observations.append(f"📄 读取大文件: {content_len} 字符")
+
+    if tool_name in ("write_file", "self_edit"):
+        if not has_error:
+            observations.append("📝 文件已修改")
+
+    if tool_name in ("search_knowledge", "search_knowledge_batch"):
+        hit_count = result.get("total_hits", result.get("hits_count", 0))
+        if hit_count == 0:
+            observations.append("🔍 知识检索无结果")
+
+    # 返回合并观察（最多 2 条，避免噪音）
+    return " | ".join(observations[:2]) if observations else ""
 
 
 def _is_retryable_error(result: dict) -> bool:
@@ -492,6 +556,7 @@ class Kernel:
         from .toolkit import get_global
 
         _storage = get_global("storage")
+        self._knowledge_hit_count = 0  # 跟踪知识检索结果，供经验提取使用
         if _storage and self._current_user_message and len(self._current_user_message) > 3:
             try:
                 _query = self._current_user_message[:200]
@@ -558,8 +623,10 @@ class Kernel:
                             _storage.record_hit(_hit_r[0])
                         except Exception:
                             logger.exception("记录 hit 失败 (id=%s)", _hit_r[0])
+                    self._knowledge_hit_count = len(_results)  # 保存命中数供经验提取
                     logger.info("Knowledge 自动检索: 命中 %d 条", len(_results))
                 else:
+                    self._knowledge_hit_count = 0  # 保存未命中状态
                     logger.info("Knowledge 自动检索: 无命中")
             except Exception as _e:
                 logger.warning("Knowledge 自动检索失败（不阻塞主流程）: %s", _e)
@@ -855,6 +922,7 @@ class Kernel:
         _timings.append(("build_prompt", time.time()))
 
         # ── Thinking Lever: L0 + L1 (预处理器) ──
+        _raw_user_message = user_message  # 保留原始消息（搜索等下游用）
         try:
             enriched, self._thinking_meta = enrich_with_thinking(user_message)
             user_message = enriched  # 替换原消息为富化版本
@@ -892,7 +960,7 @@ class Kernel:
         # 用户消息含搜索指令词时，不等 LLM 判断，先自动搜一次
         # 注意：触发词不能太短（如单个"搜"字），会匹配"搜索引擎"等正常话语
         pre_search = False
-        search_query = user_message
+        search_query = _raw_user_message  # 用原始消息搜索，避免元数据标签泄漏
         search_cues = ["查一下", "查查", "搜索一下", "查找", "找找", "帮我找", "在网上找", "上网查"]
         # 硬性要求：消息必须以搜索意图开头或结尾，避免误触发
         has_cue = any(cue in search_query.lower() for cue in search_cues)
@@ -907,6 +975,10 @@ class Kernel:
                 "",
                 search_query,
             ).strip()
+            # 防御：过滤可能的元数据标签（task_profile、thinking_method 等）
+            query = _re.sub(r"\[(?:task_profile|thinking_method|context|constraints):[^\]]*\]", "", query)
+            query = _re.sub(r"└[^\n]*", "", query)
+            query = query.strip()
             # 追加日期约束：如果原消息含"最新/今天/最近"等时间词，自动加当前年月
             time_cues = ["最新", "今天", "最近", "近日", "本月", "今月", "当前", "时下", "新"]
             if any(cue in search_query.lower() for cue in time_cues):
@@ -1025,12 +1097,21 @@ class Kernel:
             _failure_reason = ""
             _failed_approach = ""
             _rollback = "rollback" in reply.lower() or "回滚" in reply
+            _rollback_action = ""
             if _has_failure:
                 # 尝试从 reply 中提取失败原因
                 _reply_lower = reply.lower()
                 if "error" in _reply_lower:
                     _failure_reason = reply[:200]
                 _failed_approach = user_message[:100]
+            if _rollback:
+                # 提取回滚的具体操作（优先从 [xxx] 格式中提取）
+                import re as _re
+                _m = _re.search(r"回滚[:\s]*\[([^\]]+)\]", reply)
+                if _m:
+                    _rollback_action = _m.group(1)
+                else:
+                    _rollback_action = reply[:100]
             asyncio.create_task(
                 _async_extract_experience(
                     _engine,
@@ -1042,6 +1123,8 @@ class Kernel:
                     failure_reason=_failure_reason,
                     failed_approach=_failed_approach,
                     rollback_occurred=_rollback,
+                    rollback_action=_rollback_action,
+                    knowledge_hit_count=getattr(self, "_knowledge_hit_count", None),
                 )
             )
 
@@ -1064,6 +1147,17 @@ class Kernel:
             close_trace(status="failed", error=failure["suggestion"])
         else:
             close_trace(status="completed")
+
+        # ── 7. 自进化：自动触发 trace 复盘分析 ──
+        # 从 trace 中提取决策链复盘、模式识别、行动建议
+        try:
+            from .trace_review import review as _trace_review
+
+            # 只有工具调用 >= 3 次才值得复盘（太少没有分析价值）
+            if _this_turn_tools >= 3:
+                asyncio.create_task(_async_trace_review(_trace_id))
+        except Exception as _tr_err:
+            logger.debug("trace_review 触发失败（不阻塞主流程）: %s", _tr_err)
 
         # 计时摘要
         _timings.append(("total", time.time()))
@@ -1787,6 +1881,44 @@ class Kernel:
                 error=str(result.get("error", "")) if has_error else "",
                 duration_ms=_trace_elapsed,
             )
+
+            # ── refraction：工具调用后步骤级反思（完整版） ──
+            # 使用 RefractionEngine 评估工具调用结果
+            try:
+                from .refraction import evaluate_tool_call
+
+                refraction_result = evaluate_tool_call(
+                    tool_name=func_name,
+                    args=func_args,
+                    result=result,
+                    has_error=has_error,
+                    duration_ms=_trace_elapsed,
+                )
+
+                # 记录到 tracer
+                if refraction_result.get("verdict") != "success":
+                    from .tracer import record_refraction
+
+                    observation = (
+                        f"[{refraction_result['verdict']}] "
+                        f"{refraction_result['recommendation']}"
+                    )
+                    record_refraction(
+                        tool_name=func_name,
+                        observation=observation,
+                    )
+
+                    # 高严重度问题记录日志
+                    if refraction_result.get("severity") == "high":
+                        logger.warning(
+                            "🔍 Refraction [%s]: %s - %s",
+                            func_name,
+                            refraction_result["verdict"],
+                            refraction_result["recommendation"],
+                        )
+
+            except Exception as _refract_err:
+                logger.debug("refraction 评估失败（不影响主流程）: %s", _refract_err)
 
             # ── 错误提示注入 ──
             if has_error and func_name in _tool_parameter_hints:

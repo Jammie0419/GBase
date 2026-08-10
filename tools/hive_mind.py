@@ -60,7 +60,7 @@ def _get_llm_config() -> dict:
         # 尝试 .env
         dotenv_path = os.path.join(os.path.dirname(__file__), "..", ".env")
         if os.path.exists(dotenv_path):
-            with open(dotenv_path) as f:
+            with open(dotenv_path, encoding="utf-8") as f:
                 for line in f:
                     line = line.strip()
                     if line and not line.startswith("#") and "=" in line:

@@ -10,6 +10,8 @@
 import time
 from collections import deque
 
+from lib.compat import IS_MACOS
+
 # ── 采样窗口: 保留最近 1000 次请求的耗时（~16KB）──
 _MAX_SAMPLES = 1000
 
@@ -76,13 +78,11 @@ def metrics_dict() -> dict:
 
 def _rss_mb() -> int:
     """当前进程 RSS 内存（MB），跨平台。"""
-    import sys
-
     try:
         import resource
 
         rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-        if sys.platform == "darwin":
+        if IS_MACOS:
             return round(rss / 1024 / 1024)  # macOS: bytes
         else:
             return round(rss / 1024)  # Linux: KB

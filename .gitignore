@@ -30,6 +30,9 @@ data/experience.jsonl
 data/knowledge.jsonl
 data/traces/
 data/*.db
+data/*.db-shm
+data/*.db-wal
+data/notes/
 
 # Logs
 logs/
@@ -66,5 +69,6 @@ docs/WHITEPAPER.html
 data/arms/
 data/experience.jsonl
 data/knowledge.jsonl
+data/skill_usage.jsonl
 data/sessions/
 data/mirror/
