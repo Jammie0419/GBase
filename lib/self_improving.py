@@ -140,6 +140,18 @@ class SelfImprovingEngine:
             self._improvement_log.extend(improvements)
             self._log_improvements(entry_type, summary, improvements)
 
+            # ── 自进化：尝试自动实现高优先级改进 ──
+            try:
+                from .code_evolver import evolve_from_suggestion
+
+                for imp in improvements:
+                    if imp.get("priority") == "high":
+                        # 添加置信度（基于规则类型）
+                        imp["confidence"] = 0.85 if imp.get("rule") == "error_pattern_learned" else 0.7
+                        evolve_from_suggestion(imp)
+            except Exception as _ce_err:
+                logger.debug("代码进化触发失败（不影响建议记录）: %s", _ce_err)
+
         return improvements
 
     def _log_improvements(self, entry_type: str, summary: str, improvements: list[dict]):
