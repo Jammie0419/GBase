@@ -18,3 +18,14 @@
 - [high] 重复出现问题 (tool_excessive)，考虑优化工作流程或创建专用技能
 
 ---
+
+## 2026-08-10 15:32:42 - 自我改进触发
+
+**触发来源**: experience
+**摘要**: an error occurred in the tool call
+
+**改进建议**:
+- [high] 从错误经验中学习，考虑更新工具参数提示
+- [high] 重复出现问题 (tool_excessive)，考虑优化工作流程或创建专用技能
+
+---
