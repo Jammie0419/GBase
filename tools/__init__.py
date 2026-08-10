@@ -43,6 +43,7 @@ from . import (  # noqa: F401
     security_watch,  # noqa: F401
     self_search,  # noqa: F401
     send_file,  # noqa: F401
+    session_tools,  # noqa: F401
     test_generator,  # noqa: F401
     write_file,  # noqa: F401
     xlsx_gen,  # noqa: F401
@@ -638,5 +639,19 @@ def _register_new_skills():
             "distill_train",
             "distill_push",
             "distill_eval",
+        ],
+    )
+
+    # ── Web 会话管理 ──
+    register_toolset(
+        "sessions",
+        [
+            "会话", "聊天记录", "历史", "session", "对话记录",
+            "之前聊过", "上次聊天", "查看会话", "删除会话",
+        ],
+        [
+            "list_sessions",
+            "get_session",
+            "delete_session",
         ],
     )

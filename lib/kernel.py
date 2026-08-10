@@ -1909,8 +1909,8 @@ class Kernel:
             result_str = json.dumps(result, ensure_ascii=False)
             logger.info("工具返回 %s: %s 字, 前300=%s", func_name, len(result_str), result_str[:300].replace("\n", " "))
 
-            # ── 错误检测 ──
-            has_error = "error" in result if isinstance(result, dict) else False
+            # ── 错误检测（检查 error 字段是否有实际值，None 不算错误）──
+            has_error = bool(result.get("error")) if isinstance(result, dict) else False
 
             # ── 实时推送工具调用结束 ──
             if on_event:
@@ -1978,7 +1978,7 @@ class Kernel:
                     result_str = json.dumps(result, ensure_ascii=False)
 
             # ═══ 熔断：更新并发失败计数器 ═══
-            has_error = "error" in result if isinstance(result, dict) else False
+            has_error = bool(result.get("error")) if isinstance(result, dict) else False
             if has_error:
                 CIRCUIT_BREAKER["_failures"][func_name] += 1
                 CIRCUIT_BREAKER["_round_failure_count"] += 1
