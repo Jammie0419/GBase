@@ -43,7 +43,7 @@
 每次闭环（Collect → Inspect → Adapt → Verify）Complete后，必须：
 1. 提炼本次进化的精华
 2. 将精华刻入自身（Update规则、技能、或知识）
-3. 记录进化Log（见 `/home/opprime-v2/evolution-log.md`）
+3. 记录进化Log（见 `evolution-log.md`）
 
 不Wait指令。自己判断，自己迭代，自己跃迁。
 

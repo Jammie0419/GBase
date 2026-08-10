@@ -1,11 +1,11 @@
 # Contributing
 
-Thanks for considering contributing to opprime-world-key! We welcome all kinds of contributions — code, docs, bug reports, feature ideas.
+Thanks for considering contributing to GBase! We welcome all kinds of contributions — code, docs, bug reports, feature ideas.
 
 ## How to Contribute
 
 ### 1. Report a Bug or Suggest a Feature
-Open an [issue](https://github.com/garyqlin/opprime-world-key/issues/new) and describe:
+Open an [issue](https://github.com/garyqlin/gbase/issues/new) and describe:
 - What you're trying to do
 - What happened vs what you expected
 - Steps to reproduce (for bugs)
@@ -36,6 +36,6 @@ Docs improvements are always welcome. Submit a PR with your changes.
 If you add a new API endpoint or modify existing ones, please include a curl command example in your PR description showing it works.
 
 ## Questions?
-Open a [discussion](https://github.com/garyqlin/opprime-world-key/discussions) or reach out.
+Open a [discussion](https://github.com/garyqlin/gbase/discussions) or reach out.
 
 Thanks again! 🙏

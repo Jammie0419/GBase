@@ -40,5 +40,5 @@ cp .env.example .env
 
 ```bash
 gbase --version
-# → GBase v0.6.1
+# → GBase v0.7.0
 ```

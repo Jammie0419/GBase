@@ -8,7 +8,7 @@
 
 | 文件 | 职责 | 大小 | 状态 |
 |------|------|------|:--:|
-| `kernel.py` | 核心运行循环（run → _loop → tool_call） | 56KB | ✅ 稳定 |
+| `kernel.py` | 核心运行循环（run → _loop → tool_call） | 90KB | ✅ 稳定 |
 | `session.py` | Session 管理（JSONL 读写/构建上下文） | 17KB | ✅ 稳定 |
 | `mirror.py` | 鉴面引擎（三层记忆 hot/warm/auto） | 63KB | ✅ 稳定 |
 | `toolkit.py` | 工具注册/扫描/分发 | 24KB | ✅ 稳定 |
@@ -34,8 +34,8 @@
 
 | 分类 | 位置 | 说明 |
 |------|------|------|
-| **工具** | `gundam-home/tools/` | 78 个工具文件，Agent 特有 |
-| **规则** | `gundam-home/rules/` | 21 个 .md 规则文件 |
+| **工具** | `gundam-home/tools/` | 60 个工具文件，Agent 特有 |
+| **规则** | `gundam-home/rules/` | 8 个 .md 规则文件 |
 | **技能** | SkillHub skills/ | YF-ha-operator, YF-sonos-dual-tts 等 |
 | **知识** | dat.db knowledge 表 | 运行时积累，自动管理 |
 | **身份** | SOUL.md / IDENTITY.md | 每个 Agent 有自己的身份文件 |

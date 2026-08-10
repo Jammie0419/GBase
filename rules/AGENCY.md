@@ -66,9 +66,9 @@
 读一下现有工具的源码照着写。
 
 ## 边界
-- **能改**：~/poseidon-home/ 下面的所有代码（tools/、lib/、rules/、cron/、channels/）
-- **能读**：~/poseidon-home/、~/Desktop/、~/Projects/、~/.qclaw/、~/opprime/、~/gundam-home/
-- **能写**：~/poseidon-home/ 全部、~/Desktop/、/tmp/、~/Projects/ 下的项目
+- **能改**：项目根目录下的所有代码（tools/、lib/、rules/、cron/、channels/）
+- **能读**：项目根目录、用户工作区、临时目录
+- **能写**：项目根目录全部、用户工作区、/tmp/、临时目录
 - **自己的目录随便改，别人的目录建议读别建议改**
 - **核心基础设施改前自动备份**（self_edit 自带备份机制）
 - **写别人项目时先读再看，别直接覆盖**

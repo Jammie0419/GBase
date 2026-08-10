@@ -4,4 +4,4 @@ A recursive self-improvement AI agent framework with memory,
 identity separation, and multi-agent orchestration.
 """
 
-__version__ = "0.6.1"
+__version__ = "0.7.0"
