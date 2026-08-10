@@ -209,10 +209,6 @@ class WebChatChannel:
                         if not user_msg:
                             continue
 
-                        # Persist user message to session
-                        if session_mgr:
-                            session_mgr.append_user_message(user_msg)
-
                         # Notify streaming start
                         await ws.send_json({"type": "status", "content": "processing"})
 
@@ -237,10 +233,6 @@ class WebChatChannel:
                                 platform="webchat",
                                 session=session_mgr,
                             )
-
-                            # Persist assistant response to session
-                            if session_mgr:
-                                session_mgr.append({"role": "assistant", "content": response})
 
                             # Stream response character by character for cool effect
                             # but batch into chunks for practicality
