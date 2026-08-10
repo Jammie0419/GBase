@@ -68,7 +68,8 @@ class TestRestoredModules:
         assert mod is not None
 
     def test_exec(self):
-        mod = importlib.import_module("lib.exec")
+        # exec.py 已移至 tools/ 目录
+        mod = importlib.import_module("tools.exec")
         assert mod is not None
 
 
