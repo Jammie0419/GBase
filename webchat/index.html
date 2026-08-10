@@ -511,6 +511,100 @@
     30% { transform: translateY(-6px); background: var(--accent); }
   }
 
+  /* ── Process blocks (thinking / tool calls) ── */
+  .process-container {
+    align-self: stretch;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 4px 0;
+  }
+  .process-block {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.82rem;
+    animation: fadeIn 0.2s ease;
+    overflow: hidden;
+  }
+  .process-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    cursor: pointer;
+    user-select: none;
+    color: var(--text-dim);
+    transition: background 0.15s;
+  }
+  .process-header:hover { background: var(--surface3); }
+  .process-icon { flex-shrink: 0; font-size: 0.9rem; }
+  .process-title {
+    flex: 1;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .process-status { flex-shrink: 0; font-size: 0.8rem; }
+  .process-chevron {
+    flex-shrink: 0;
+    font-size: 0.65rem;
+    transition: transform 0.2s;
+    color: var(--text-dim);
+  }
+  .process-block.collapsed .process-chevron { transform: rotate(-90deg); }
+  .process-body {
+    padding: 0 12px 10px 12px;
+    color: var(--text-dim);
+    font-size: 0.78rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 300px;
+    overflow-y: auto;
+    border-top: 1px solid var(--border);
+    transition: max-height 0.25s ease, padding 0.25s ease, opacity 0.2s ease;
+  }
+  .process-block.collapsed .process-body {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    opacity: 0;
+    overflow: hidden;
+    border-top-color: transparent;
+  }
+  .tool-args, .tool-result {
+    margin: 6px 0;
+    padding: 6px 8px;
+    background: var(--bg);
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.75rem;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  .tool-section-label {
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 3px;
+    font-size: 0.75rem;
+  }
+  .process-spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
   /* ── Input Area ── */
   .input-area {
     padding: 16px 20px;
@@ -866,6 +960,8 @@ let reconnectAttempts = 0;
 let currentSessionId = null;
 let sessions = [];  // list of session metadata
 let requestStartTime = 0;  // for response time tracking
+let currentProcessContainer = null;  // for thinking/tool process blocks
+let currentThinkingBlock = null;     // current thinking block element
 
 const input = document.getElementById('input');
 const messages = document.getElementById('messages');
@@ -970,6 +1066,9 @@ function handleMessage(data) {
       if (data.content === 'processing') {
         isProcessing = true;
         requestStartTime = Date.now();
+        currentProcessContainer = null;
+        currentThinkingBlock = null;
+        currentAgentMsg = null;
         showTyping();
       }
       break;
@@ -982,6 +1081,18 @@ function handleMessage(data) {
       updateToolChain(data.content);
       break;
 
+    case 'thinking':
+      handleThinking(data.content);
+      break;
+
+    case 'tool_start':
+      handleToolStart(data.name, data.args);
+      break;
+
+    case 'tool_end':
+      handleToolEnd(data.name, data.ok, data.result_preview);
+      break;
+
     case 'chunk':
       appendChunk(data.content);
       break;
@@ -989,6 +1100,8 @@ function handleMessage(data) {
     case 'done':
       isProcessing = false;
       removeTyping();
+      currentProcessContainer = null;
+      currentThinkingBlock = null;
       finalizeMessage(data.content);
       updateMetrics(data.meta);
       // Response time
@@ -1186,6 +1299,102 @@ function showTyping() {
 function removeTyping() {
   const el = document.getElementById('typing');
   if (el) el.remove();
+}
+
+// ── Process blocks (thinking / tool calls) ──
+
+function ensureProcessContainer() {
+  if (!currentProcessContainer) {
+    removeTyping();
+    currentProcessContainer = document.createElement('div');
+    currentProcessContainer.className = 'process-container';
+    messages.appendChild(currentProcessContainer);
+  }
+  return currentProcessContainer;
+}
+
+function toggleProcessBlock(el) {
+  el.classList.toggle('collapsed');
+}
+
+function handleThinking(content) {
+  const container = ensureProcessContainer();
+
+  if (!currentThinkingBlock) {
+    const block = document.createElement('div');
+    block.className = 'process-block thinking-block';
+    block.innerHTML = `
+      <div class="process-header" onclick="toggleProcessBlock(this.parentElement)">
+        <span class="process-icon">💭</span>
+        <span class="process-title">思考中</span>
+        <span class="process-chevron">▼</span>
+      </div>
+      <div class="process-body"></div>
+    `;
+    container.appendChild(block);
+    currentThinkingBlock = block;
+  }
+
+  const body = currentThinkingBlock.querySelector('.process-body');
+  body.textContent += content;
+  scrollToBottom();
+}
+
+function handleToolStart(name, args) {
+  const container = ensureProcessContainer();
+
+  const block = document.createElement('div');
+  block.className = 'process-block tool-block';
+  block.dataset.toolName = name;
+
+  const argsDisplay = args || '';
+  block.innerHTML = `
+    <div class="process-header" onclick="toggleProcessBlock(this.parentElement)">
+      <span class="process-icon">🔧</span>
+      <span class="process-title">${escapeHtml(name)}</span>
+      <span class="process-status"><span class="process-spinner"></span></span>
+      <span class="process-chevron">▼</span>
+    </div>
+    <div class="process-body">
+      <div class="tool-section-label">📋 参数</div>
+      <div class="tool-args">${escapeHtml(argsDisplay)}</div>
+    </div>
+  `;
+  container.appendChild(block);
+  scrollToBottom();
+  return block;
+}
+
+function handleToolEnd(name, ok, resultPreview) {
+  // Find the last tool block with this name that's still spinning
+  const blocks = messages.querySelectorAll(`.tool-block[data-tool-name="${name}"]`);
+  let targetBlock = null;
+  for (let i = blocks.length - 1; i >= 0; i--) {
+    if (blocks[i].querySelector('.process-spinner')) {
+      targetBlock = blocks[i];
+      break;
+    }
+  }
+  if (!targetBlock) return;
+
+  // Update status indicator
+  const statusEl = targetBlock.querySelector('.process-status');
+  statusEl.innerHTML = ok ? '✅' : '❌';
+
+  // Update title to show result
+  const titleEl = targetBlock.querySelector('.process-title');
+  if (!ok) titleEl.textContent = name + ' (失败)';
+
+  // Add result section
+  const body = targetBlock.querySelector('.process-body');
+  const preview = (resultPreview || '').slice(0, 500);
+  const resultSection = document.createElement('div');
+  resultSection.style.marginTop = '8px';
+  resultSection.innerHTML = `
+    <div class="tool-section-label">📋 结果 (${(resultPreview || '').length} 字符)</div>
+    <div class="tool-result">${escapeHtml(preview)}</div>
+  `;
+  body.appendChild(resultSection);
 }
 
 // ── Streaming chunks ──
@@ -1416,6 +1625,8 @@ async function deleteSession(sessionId) {
 function clearChatMessages() {
   messages.innerHTML = '';
   currentAgentMsg = null;
+  currentProcessContainer = null;
+  currentThinkingBlock = null;
   removeTyping();
 }
 

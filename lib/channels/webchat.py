@@ -231,10 +231,18 @@ class WebChatChannel:
 
                         # Run kernel with session context
                         try:
+                            # ── 实时事件回调（thinking / tool_start / tool_end）──
+                            async def _ws_event(event_type: str, payload: dict):
+                                try:
+                                    await ws.send_json({"type": event_type, **payload})
+                                except Exception:
+                                    pass
+
                             response = await self.kernel.run(
                                 user_message=user_msg,
                                 platform="webchat",
                                 session=session_mgr,
+                                on_event=_ws_event,
                             )
 
                             # Extract tool calls from session (kernel 写入的 tool_call 记录)

@@ -13,6 +13,7 @@ import json
 import logging
 import time
 from collections import defaultdict
+from collections.abc import Awaitable, Callable
 
 from openai import AsyncOpenAI
 
@@ -848,6 +849,7 @@ class Kernel:
         platform: str = "cli",
         session: JsonlSessionManager | None = None,
         max_seconds: int | None = None,
+        on_event: Callable[[str, dict], Awaitable[None]] | None = None,
     ) -> str:
         """单次对话入口。
 
@@ -1053,7 +1055,7 @@ class Kernel:
 
         # ── 5. 首次 LLM 调用（带超时保护）──
         _pre_loop_tool_count = len([m for m in messages if m.get("role") == "tool"])
-        _loop_coro = self._loop(messages, tools, depth=0, session=session)
+        _loop_coro = self._loop(messages, tools, depth=0, session=session, on_event=on_event)
         timeout_happened = False
         if max_seconds:
             try:
@@ -1695,7 +1697,12 @@ class Kernel:
         return ""
 
     async def _loop(
-        self, messages: list[dict], tools: list[dict], depth: int = 0, session: JsonlSessionManager | None = None
+        self,
+        messages: list[dict],
+        tools: list[dict],
+        depth: int = 0,
+        session: JsonlSessionManager | None = None,
+        on_event: Callable[[str, dict], Awaitable[None]] | None = None,
     ) -> str:
         """内核递归循环。"""
 
@@ -1758,6 +1765,13 @@ class Kernel:
             _reasoning = msg.reasoning_content
         elif hasattr(msg, "model_extra") and msg.model_extra:
             _reasoning = msg.model_extra.get("reasoning_content")
+
+        # ── 实时推送思考内容 ──
+        if _reasoning and on_event:
+            try:
+                await on_event("thinking", {"content": _reasoning})
+            except Exception:
+                pass
 
         # ── 纯文本回复 ──
         if not msg.tool_calls:
@@ -1874,6 +1888,13 @@ class Kernel:
 
             logger.info("工具调用: %s(%s)", func_name, json.dumps(func_args, ensure_ascii=False)[:120])
 
+            # ── 实时推送工具调用开始 ──
+            if on_event:
+                try:
+                    await on_event("tool_start", {"name": func_name, "args": json.dumps(func_args, ensure_ascii=False)[:500]})
+                except Exception:
+                    pass
+
             # 自动重试（最多 1 次）
             _trace_start = time.time()
             result = None
@@ -1890,6 +1911,13 @@ class Kernel:
 
             # ── 错误检测 ──
             has_error = "error" in result if isinstance(result, dict) else False
+
+            # ── 实时推送工具调用结束 ──
+            if on_event:
+                try:
+                    await on_event("tool_end", {"name": func_name, "ok": not has_error, "result_preview": result_str[:500]})
+                except Exception:
+                    pass
 
             # ── trace 记录（在 has_error 确定之后） ──
             record_tool_call(
@@ -2034,8 +2062,8 @@ class Kernel:
 
         # 递归至多 15 层
         if depth + 1 >= MAX_TOOL_DEPTH:
-            return await self._loop(messages, tools, depth=depth + 1, session=session)
-        return await self._loop(messages, tools, depth=depth + 1, session=session)
+            return await self._loop(messages, tools, depth=depth + 1, session=session, on_event=on_event)
+        return await self._loop(messages, tools, depth=depth + 1, session=session, on_event=on_event)
 
 
 # ── GMem Phase B1: 构建压缩摘要（供 archive_store 存档） ──
