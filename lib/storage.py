@@ -37,7 +37,7 @@ async def _async_self_improving(entry_type: str, entry_data: dict, summary: str)
         logger.debug("self-improving 异常（不影响主流程）: %s", e)
 
 
-DATA_DIR = Path(__file__).parent.parent / "data"
+DATA_DIR = Path(__file__).parent.parent.parent / "data"
 DB_PATH = DATA_DIR / "dat.db"
 
 # 三层对应的 JSONL 镜像文件名

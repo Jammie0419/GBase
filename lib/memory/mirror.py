@@ -29,7 +29,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-DATA_DIR = Path(__file__).parent.parent / "data"
+DATA_DIR = Path(__file__).parent.parent.parent / "data"
 MIRROR_DB = DATA_DIR / "mirror.db"
 
 

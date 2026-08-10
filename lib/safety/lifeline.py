@@ -28,7 +28,7 @@ from lib.compat import get_disk_usage_percent
 logger = logging.getLogger(__name__)
 
 # ── 配置 ──
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 GIT_DIR = ROOT / ".git"
 SNAPSHOT_LOG = ROOT / "data" / "snapshots.json"
 BACKUP_DIR = ROOT / ".backups"

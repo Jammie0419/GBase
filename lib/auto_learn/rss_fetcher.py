@@ -129,7 +129,7 @@ DEFAULT_RSS_TOPICS = [
 # 配置管理
 # ═══════════════════════════════════════════════════
 
-CONFIG_DIR = Path(__file__).parent.parent / "data"
+CONFIG_DIR = Path(__file__).parent.parent.parent / "data"
 RSS_TOPICS_PATH = CONFIG_DIR / "rss_topics.json"
 
 

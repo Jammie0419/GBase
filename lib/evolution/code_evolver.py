@@ -33,7 +33,7 @@ class CodeEvolver:
     """代码进化器 — 用 LLM 生成代码修改，自动进化自身。"""
 
     def __init__(self):
-        self.project_root = Path(__file__).resolve().parent.parent
+        self.project_root = Path(__file__).resolve().parent.parent.parent
         self._evolution_log = []
 
     async def evolve_from_suggestion_async(self, suggestion: dict) -> bool:

@@ -208,7 +208,7 @@ class SkillRouter:
 
         try:
             # 写入 data/skill_usage.jsonl
-            usage_file = Path(__file__).resolve().parent.parent / "data" / "skill_usage.jsonl"
+            usage_file = Path(__file__).resolve().parent.parent.parent / "data" / "skill_usage.jsonl"
             usage_file.parent.mkdir(parents=True, exist_ok=True)
 
             entry = {

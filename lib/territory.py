@@ -50,7 +50,7 @@ def get_self_home() -> str:
     # .resolve() on symlinks resolves to the origin gbase-lib/, causing self_home to be incorrect
     # 直接使用 __file__ 原始路径：gundam-home/lib/territory.py → gundam-home/
     this_file = Path(__file__)
-    self_home = str(this_file.parent.parent)
+    self_home = str(this_file.parent.parent.parent)
     _self_home_cache = self_home
     return self_home
 

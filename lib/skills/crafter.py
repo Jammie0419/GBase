@@ -23,7 +23,7 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-SKILLS_DIR = Path(__file__).parent.parent / "skills"
+SKILLS_DIR = Path(__file__).parent.parent.parent / "skills"
 
 
 # ── 能力缺口模式库 ─────────────────────────────────────
@@ -206,7 +206,7 @@ created_by: skill_crafter
     def _log_evolution(self, pattern: dict):
         """记录进化动作到日志。"""
         try:
-            log_file = Path(__file__).parent.parent / "evolution-log.md"
+            log_file = Path(__file__).parent.parent.parent / "evolution-log.md"
 
             # 读取现有内容（如果存在）
             existing = ""
@@ -250,7 +250,7 @@ created_by: skill_crafter
             }
         """
         try:
-            usage_file = Path(__file__).parent.parent / "data" / "skill_usage.jsonl"
+            usage_file = Path(__file__).parent.parent.parent / "data" / "skill_usage.jsonl"
             if not usage_file.exists():
                 return {"skill_stats": {}, "unused_skills": [], "low_performing_skills": [], "recommendations": []}
 
@@ -370,7 +370,7 @@ created_by: skill_crafter
     def _log_skill_evolution(self, skill_name: str, improvements: str):
         """记录技能进化到日志。"""
         try:
-            log_file = Path(__file__).parent.parent / "evolution-log.md"
+            log_file = Path(__file__).parent.parent.parent / "evolution-log.md"
 
             existing = ""
             if log_file.exists():

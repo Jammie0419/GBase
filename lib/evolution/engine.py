@@ -29,7 +29,7 @@ from lib.backup import backup_file, list_backups, restore_backup
 
 # ── Configuration ───────────────────────────────────
 
-ENGINE_DIR = os.getenv("GBASE_EVOLUTION_DIR") or str(Path(__file__).resolve().parent.parent / ".evolution")
+ENGINE_DIR = os.getenv("GBASE_EVOLUTION_DIR") or str(Path(__file__).resolve().parent.parent.parent / ".evolution")
 EVAL_LOG_PATH = os.path.join(ENGINE_DIR, "evaluations.jsonl")
 RULES_PATH = os.path.join(ENGINE_DIR, "rules.json")
 

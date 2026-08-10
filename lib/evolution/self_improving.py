@@ -145,7 +145,7 @@ class SelfImprovingEngine:
     def _log_improvements(self, entry_type: str, summary: str, improvements: list[dict]):
         """记录改进到日志文件。"""
         try:
-            log_file = Path(__file__).parent.parent / "self-improving-log.md"
+            log_file = Path(__file__).parent.parent.parent / "self-improving-log.md"
 
             existing = ""
             if log_file.exists():

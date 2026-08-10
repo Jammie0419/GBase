@@ -53,8 +53,8 @@ CRITICAL_PATTERNS = [
 def is_critical(file_path: str) -> bool:
     """判断文件是否属于关键文件，需要走沙箱推演。"""
     rel: str = (
-        str(Path(file_path).relative_to(Path(__file__).parent.parent))
-        if str(file_path).startswith(str(Path(__file__).parent.parent))
+        str(Path(file_path).relative_to(Path(__file__).parent.parent.parent))
+        if str(file_path).startswith(str(Path(__file__).parent.parent.parent))
         else file_path
     )
     return any(rel.endswith(critical) for critical in CRITICAL_FILES)
@@ -104,7 +104,7 @@ def check_failure_patterns(file_path: str, new_content: str) -> list[str]:
     # FP-004：未验证的 import/依赖
     import_tk = re.findall(r"^from lib\.(\w+) import", new_content, re.MULTILINE)
     for lib in import_tk:
-        lib_path = Path(__file__).parent / f"{lib}.py"
+        lib_path = Path(__file__).parent.parent / f"{lib}.py"
         if not lib_path.exists():
             hits.append(f"FP-004: from lib.{lib} 可能不存在 ({lib_path} not found)")
 

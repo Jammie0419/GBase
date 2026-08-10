@@ -18,7 +18,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 # Pipeline storage directory
-PIPELINE_DIR = Path(__file__).resolve().parent.parent / "data" / "pipelines"
+PIPELINE_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "pipelines"
 
 
 async def run_gate(

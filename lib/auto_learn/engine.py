@@ -36,7 +36,7 @@ DEFAULT_LEARN_TOPICS = [
 
 
 # 配置文件路径
-CONFIG_DIR = Path(__file__).parent.parent / "data"
+CONFIG_DIR = Path(__file__).parent.parent.parent / "data"
 TOPICS_PATH = CONFIG_DIR / "learn_topics.json"
 
 

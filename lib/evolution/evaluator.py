@@ -31,7 +31,7 @@ class EvolutionEvaluator:
     """进化质量评估器。"""
 
     def __init__(self):
-        self.project_root = Path(__file__).resolve().parent.parent
+        self.project_root = Path(__file__).resolve().parent.parent.parent
         self._evaluation_log = []
 
         # 质量阈值

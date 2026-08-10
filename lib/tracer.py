@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 # ── 存储 ──
 
-TRACE_DIR = Path(__file__).resolve().parent.parent / "data" / "traces"
+TRACE_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "traces"
 
 # 当前活跃的 trace 上下文（线程安全：同一时间只有一个对话）
 _current_trace: dict | None = None

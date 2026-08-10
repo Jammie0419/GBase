@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import Any
 
 # === 配置 ===
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 DATA_DIR = BASE_DIR / "data"
 COGNIFOLD_DB = DATA_DIR / "cognifold.db"
 
