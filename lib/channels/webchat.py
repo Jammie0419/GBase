@@ -3,7 +3,8 @@
 webchat.py — GBase WebSocket Chat Channel
 
 A production-grade WebSocket chat backend for GBase agents.
-Supports streaming responses, file uploads, knowledge injection, and tool chain visibility.
+Supports streaming responses, file uploads, knowledge injection, tool chain visibility,
+and persistent chat sessions with history browsing.
 
 Usage:
     channel = WebChatChannel(kernel, storage)
@@ -17,12 +18,17 @@ import json
 import logging
 import mimetypes
 import os
+import time
+import uuid
 from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
+
+from lib.compat import GBASE_DATA_DIR
+from lib.session import JsonlSessionManager
 from fastapi.staticfiles import StaticFiles
 
 logger = logging.getLogger("gbase.webchat")
@@ -40,9 +46,11 @@ class WebChatChannel:
     ):
         self.kernel = kernel
         self.storage = storage
-        self.data_dir = data_dir or os.environ.get("GBASE_DATA_DIR", "data")
+        self.data_dir = data_dir or str(GBASE_DATA_DIR)
         self.max_upload_mb = max_upload_mb
         self._static_dir = Path(__file__).parent.parent.parent / "webchat"
+        self._sessions_dir = Path(self.data_dir) / "sessions"
+        self._sessions_dir.mkdir(parents=True, exist_ok=True)
 
     def create_app(self, title: str = "GBase Web Chat") -> FastAPI:
         app = FastAPI(title=title)
@@ -70,6 +78,47 @@ class WebChatChannel:
         async def health():
             return {"status": "ok", "app": "gbase-webchat"}
 
+        # ── Session REST API ──────────────────────────────────────────
+
+        @app.get("/api/sessions")
+        async def list_sessions():
+            """列出所有聊天会话，按更新时间倒序。"""
+            sessions = self._scan_sessions()
+            return {"sessions": sessions}
+
+        @app.get("/api/sessions/{session_id}")
+        async def get_session(session_id: str):
+            """获取一个会话的所有消息。"""
+            # 安全校验：session_id 只能是字母数字和 - _
+            if not all(c.isalnum() or c in "-_" for c in session_id):
+                return JSONResponse({"error": "invalid session_id"}, status_code=400)
+
+            filepath = self._sessions_dir / f"{session_id}.jsonl"
+            if not filepath.exists():
+                return JSONResponse({"error": "session not found"}, status_code=404)
+
+            messages = self._read_session_messages(str(filepath))
+            meta = self._extract_session_meta(str(filepath))
+            return {"session_id": session_id, "meta": meta, "messages": messages}
+
+        @app.delete("/api/sessions/{session_id}")
+        async def delete_session(session_id: str):
+            """删除一个聊天会话（同步删除数据库文件）。"""
+            if not all(c.isalnum() or c in "-_" for c in session_id):
+                return JSONResponse({"error": "invalid session_id"}, status_code=400)
+
+            filepath = self._sessions_dir / f"{session_id}.jsonl"
+            if not filepath.exists():
+                return JSONResponse({"error": "session not found"}, status_code=404)
+
+            try:
+                filepath.unlink()
+                logger.info("Session deleted: %s", session_id)
+                return {"status": "ok", "session_id": session_id}
+            except Exception as e:
+                logger.error("Failed to delete session %s: %s", session_id, e)
+                return JSONResponse({"error": str(e)}, status_code=500)
+
         @app.post("/ask")
         async def ask_http(request: Request):
             """HTTP fallback for non-streaming chat (for testing)."""
@@ -81,11 +130,15 @@ class WebChatChannel:
             )
             return JSONResponse({"reply": response})
 
-        # WebSocket chat endpoint
+        # WebSocket chat endpoint with session support
         @app.websocket("/ws")
         async def websocket_endpoint(ws: WebSocket):
             await ws.accept()
             logger.info("WebSocket connected")
+
+            # Per-connection session state
+            session_id = None
+            session_mgr = None
 
             # Send config (model name etc.) to client on connect
             try:
@@ -108,10 +161,57 @@ class WebChatChannel:
 
                     msg_type = data.get("type", "text")
 
+                    # ── Session management messages ──
+                    if msg_type == "new_session":
+                        # Create a brand new session
+                        session_id = self._generate_session_id()
+                        session_mgr = self._create_session(session_id)
+                        await ws.send_json({
+                            "type": "session_created",
+                            "session_id": session_id,
+                        })
+                        logger.info("New session created: %s", session_id)
+                        continue
+
+                    if msg_type == "load_session":
+                        load_sid = data.get("session_id", "")
+                        if not load_sid or not all(c.isalnum() or c in "-_" for c in load_sid):
+                            await ws.send_json({"type": "error", "content": "invalid session_id"})
+                            continue
+                        filepath = self._sessions_dir / f"{load_sid}.jsonl"
+                        if not filepath.exists():
+                            await ws.send_json({"type": "error", "content": "session not found"})
+                            continue
+                        session_id = load_sid
+                        session_mgr = JsonlSessionManager(str(filepath))
+                        # Send history to client
+                        messages = self._read_session_messages(str(filepath))
+                        await ws.send_json({
+                            "type": "session_loaded",
+                            "session_id": session_id,
+                            "messages": messages,
+                        })
+                        logger.info("Session loaded: %s (%d messages)", session_id, len(messages))
+                        continue
+
+                    # ── Auto-create session if none exists ──
+                    if session_mgr is None and msg_type == "text":
+                        session_id = self._generate_session_id()
+                        session_mgr = self._create_session(session_id)
+                        await ws.send_json({
+                            "type": "session_created",
+                            "session_id": session_id,
+                        })
+                        logger.info("Auto-created session: %s", session_id)
+
                     if msg_type == "text":
                         user_msg = data.get("content", "").strip()
                         if not user_msg:
                             continue
+
+                        # Persist user message to session
+                        if session_mgr:
+                            session_mgr.append_user_message(user_msg)
 
                         # Notify streaming start
                         await ws.send_json({"type": "status", "content": "processing"})
@@ -130,12 +230,17 @@ class WebChatChannel:
                         except Exception:
                             pass
 
-                        # Run kernel
+                        # Run kernel with session context
                         try:
                             response = await self.kernel.run(
                                 user_message=user_msg,
                                 platform="webchat",
+                                session=session_mgr,
                             )
+
+                            # Persist assistant response to session
+                            if session_mgr:
+                                session_mgr.append({"role": "assistant", "content": response})
 
                             # Stream response character by character for cool effect
                             # but batch into chunks for practicality
@@ -157,6 +262,7 @@ class WebChatChannel:
                                     "content": response,
                                     "meta": {
                                         "length": len(response),
+                                        "session_id": session_id,
                                     },
                                 }
                             )
@@ -228,6 +334,108 @@ class WebChatChannel:
                     await ws.close()
 
         return app
+
+    # ── Session Management Helpers ────────────────────────────────
+
+    def _generate_session_id(self) -> str:
+        """生成唯一的会话 ID。"""
+        return f"chat-{int(time.time())}-{uuid.uuid4().hex[:8]}"
+
+    def _create_session(self, session_id: str) -> JsonlSessionManager:
+        """创建新的会话 JSONL 文件并返回 SessionManager。"""
+        filepath = self._sessions_dir / f"{session_id}.jsonl"
+        return JsonlSessionManager(str(filepath))
+
+    def _extract_session_meta(self, filepath: str) -> dict:
+        """从 JSONL 文件中提取会话元数据（标题、时间、消息数）。"""
+        title = ""
+        first_ts = 0.0
+        last_ts = 0.0
+        msg_count = 0
+
+        try:
+            with open(filepath, encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        entry = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+
+                    etype = entry.get("type", "")
+                    ts = entry.get("_ts", 0)
+
+                    if ts > 0:
+                        if first_ts == 0:
+                            first_ts = ts
+                        last_ts = ts
+
+                    if etype in ("user", "assistant"):
+                        msg_count += 1
+                        # 取第一条用户消息作为标题
+                        if not title and etype == "user":
+                            content = entry.get("content", "")
+                            title = content[:60] if content else ""
+                    elif etype == "compaction":
+                        # compaction 级别越高，summary 越有代表性
+                        summary = entry.get("summary", "")
+                        if summary:
+                            title = summary[:60]
+        except Exception as e:
+            logger.warning("Failed to extract session meta from %s: %s", filepath, e)
+
+        return {
+            "title": title or "新对话",
+            "first_ts": first_ts,
+            "last_ts": last_ts,
+            "message_count": msg_count,
+        }
+
+    def _read_session_messages(self, filepath: str) -> list[dict]:
+        """读取会话中的所有消息（用于前端展示）。"""
+        messages = []
+        try:
+            with open(filepath, encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        entry = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+
+                    etype = entry.get("type", "")
+                    if etype in ("user", "assistant"):
+                        messages.append({
+                            "role": entry.get("role", etype),
+                            "content": entry.get("content", ""),
+                            "timestamp": entry.get("_ts", 0),
+                        })
+        except Exception as e:
+            logger.warning("Failed to read session messages from %s: %s", filepath, e)
+        return messages
+
+    def _scan_sessions(self) -> list[dict]:
+        """扫描所有会话文件，返回元数据列表（按最后更新时间倒序）。"""
+        sessions = []
+        if not self._sessions_dir.exists():
+            return sessions
+
+        for filepath in self._sessions_dir.glob("*.jsonl"):
+            session_id = filepath.stem
+            meta = self._extract_session_meta(str(filepath))
+            meta["session_id"] = session_id
+            # 从文件名获取最后修改时间作为 fallback
+            if meta["last_ts"] == 0:
+                meta["last_ts"] = filepath.stat().st_mtime
+            sessions.append(meta)
+
+        # 按最后更新时间倒序
+        sessions.sort(key=lambda s: s.get("last_ts", 0), reverse=True)
+        return sessions
 
     async def _process_upload(self, name: str, data: bytes, mime: str) -> dict:
         """Process an uploaded file and extract usable content."""
