@@ -18,6 +18,7 @@ import json
 import logging
 import mimetypes
 import os
+import re
 import time
 import uuid
 from pathlib import Path
@@ -359,6 +360,19 @@ class WebChatChannel:
             with contextlib.suppress(Exception):
                 mgr.close()
 
+    @staticmethod
+    def _strip_metadata_prefix(content: str) -> str:
+        """去掉 kernel 注入的各种元数据前缀，保留用户原始消息。"""
+        # [task_profile: scope=... | complexity=... | ...] 前缀
+        content = re.sub(r'^\[task_profile:[^\]]*\]\s*', '', content)
+        # [ArchiveSearch: ...] 前缀
+        content = re.sub(r'^\[ArchiveSearch:[^\]]*\]\s*', '', content)
+        # [Memory: ...] 前缀
+        content = re.sub(r'^\[Memory:[^\]]*\]\s*', '', content)
+        # 通用 [xxx: ...] 方括号前缀（保守匹配，只去开头的）
+        content = re.sub(r'^\[[A-Za-z_]+:[^\]]{0,200}\]\s*', '', content)
+        return content.strip()
+
     def _extract_session_meta(self, filepath: str) -> dict:
         """从 JSONL 文件中提取会话元数据（标题、时间、消息数）。"""
         title = ""
@@ -390,6 +404,8 @@ class WebChatChannel:
                         # 取第一条用户消息作为标题
                         if not title and etype == "user":
                             content = entry.get("content", "")
+                            # 去掉 kernel 注入的元数据前缀
+                            content = self._strip_metadata_prefix(content)
                             title = content[:60] if content else ""
                     elif etype == "compaction":
                         # compaction 级别越高，summary 越有代表性
@@ -422,9 +438,13 @@ class WebChatChannel:
 
                     etype = entry.get("type", "")
                     if etype in ("user", "assistant"):
+                        content = entry.get("content", "")
+                        # 展示时去掉 kernel 注入的元数据前缀
+                        if etype == "user":
+                            content = self._strip_metadata_prefix(content)
                         messages.append({
                             "role": entry.get("role", etype),
-                            "content": entry.get("content", ""),
+                            "content": content,
                             "timestamp": entry.get("_ts", 0),
                         })
         except Exception as e:
