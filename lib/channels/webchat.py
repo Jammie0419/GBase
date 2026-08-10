@@ -216,19 +216,18 @@ class WebChatChannel:
                         # Notify streaming start
                         await ws.send_json({"type": "status", "content": "processing"})
 
-                        # Send knowledge hits if available
+                        # Send knowledge hits (always send, even if empty, so frontend can update)
+                        knowledge_hits = []
                         try:
                             if self.storage:
                                 hits = self.storage.search(user_msg)
-                                if hits:
-                                    await ws.send_json(
-                                        {
-                                            "type": "knowledge",
-                                            "content": hits[:5],
-                                        }
-                                    )
+                                knowledge_hits = hits[:5] if hits else []
                         except Exception:
                             pass
+                        await ws.send_json({
+                            "type": "knowledge",
+                            "content": knowledge_hits,
+                        })
 
                         # Run kernel with session context
                         try:
@@ -237,6 +236,11 @@ class WebChatChannel:
                                 platform="webchat",
                                 session=session_mgr,
                             )
+
+                            # Extract tool calls from session (kernel 写入的 tool_call 记录)
+                            tool_calls = []
+                            if session_mgr:
+                                tool_calls = self._extract_tool_calls(str(session_mgr.filepath))
 
                             # Stream response character by character for cool effect
                             # but batch into chunks for practicality
@@ -251,6 +255,13 @@ class WebChatChannel:
                                 )
                                 await asyncio.sleep(0.01)  # Small delay for streaming feel
 
+                            # Send tool chain before done
+                            if tool_calls:
+                                await ws.send_json({
+                                    "type": "tools",
+                                    "content": tool_calls,
+                                })
+
                             # Send completion marker with metrics
                             await ws.send_json(
                                 {
@@ -259,6 +270,7 @@ class WebChatChannel:
                                     "meta": {
                                         "length": len(response),
                                         "session_id": session_id,
+                                        "tools": len(tool_calls),
                                     },
                                 }
                             )
@@ -372,6 +384,44 @@ class WebChatChannel:
         # 通用 [xxx: ...] 方括号前缀（保守匹配，只去开头的）
         content = re.sub(r'^\[[A-Za-z_]+:[^\]]{0,200}\]\s*', '', content)
         return content.strip()
+
+    @staticmethod
+    def _extract_tool_calls(filepath: str) -> list[dict]:
+        """从 session JSONL 中提取工具调用记录（给前端展示）。"""
+        tool_calls = []
+        try:
+            with open(filepath, encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        entry = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+
+                    etype = entry.get("type", "")
+                    if etype == "tool_call":
+                        # kernel 写入的 tool_call 条目
+                        content = entry.get("content", "")
+                        name = entry.get("name", "")
+                        # content 可能是 JSON 字符串（参数），也可能是描述文本
+                        if isinstance(content, str) and content.startswith("{"):
+                            with contextlib.suppress(Exception):
+                                parsed = json.loads(content)
+                                name = name or parsed.get("name", "")
+                        tool_calls.append({
+                            "name": name or "tool",
+                            "content": content if isinstance(content, str) else str(content),
+                            "status": "ok",
+                        })
+                    elif etype == "tool_result":
+                        # 标记最近一个 tool_call 为已完成
+                        if tool_calls:
+                            tool_calls[-1]["status"] = "ok"
+        except Exception as e:
+            logger.warning("Failed to extract tool calls from %s: %s", filepath, e)
+        return tool_calls
 
     def _extract_session_meta(self, filepath: str) -> dict:
         """从 JSONL 文件中提取会话元数据（标题、时间、消息数）。"""

@@ -951,6 +951,10 @@ function handleMessage(data) {
       updateKnowledge(data.content);
       break;
 
+    case 'tools':
+      updateToolChain(data.content);
+      break;
+
     case 'chunk':
       appendChunk(data.content);
       break;
@@ -1182,12 +1186,28 @@ function showFileProcessed(data) {
 function updateKnowledge(hits) {
   const section = document.getElementById('knowledgeSection');
   if (!hits || hits.length === 0) {
-    section.innerHTML = '<div class="item" style="color:var(--text-dim)">No relevant knowledge found.</div>';
+    section.innerHTML = '<div class="item" style="color:var(--text-dim)">未检索到相关知识。</div>';
     return;
   }
-  section.innerHTML = hits.map(h =>
-    `<div class="item">🔍 <span class="key">${h.type || 'fact'}:</span> ${(h.content || h.fact || '').slice(0, 120)}</div>`
-  ).join('');
+  section.innerHTML = hits.map(h => {
+    const text = h.content || h.fact || h.summary || '';
+    const type = h.type || '知识';
+    return `<div class="item">🔍 <span class="key">${escapeHtml(type)}:</span> ${escapeHtml(text.slice(0, 120))}</div>`;
+  }).join('');
+}
+
+// ── Mind panel: Tool Chain ──
+function updateToolChain(toolCalls) {
+  const section = document.getElementById('toolChainSection');
+  if (!toolCalls || toolCalls.length === 0) {
+    section.innerHTML = '<div class="item" style="color:var(--text-dim)">未调用工具。</div>';
+    return;
+  }
+  section.innerHTML = toolCalls.map(tc => {
+    const icon = tc.status === 'ok' ? '✅' : '❌';
+    const name = escapeHtml(tc.name || 'tool');
+    return `<div class="item">${icon} <span class="key">${name}</span></div>`;
+  }).join('');
 }
 
 // ── Mind panel: Section toggle ──
@@ -1200,8 +1220,8 @@ function toggleSection(el) {
 
 // ── Metrics ──
 function updateMetrics(meta) {
-  if (meta && meta.tools) {
-    toolCount += meta.tools;
+  if (meta && typeof meta.tools === 'number') {
+    toolCount = meta.tools;
     document.getElementById('metricTools').textContent = toolCount;
   }
 }
