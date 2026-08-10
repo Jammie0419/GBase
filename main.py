@@ -101,22 +101,22 @@ _load_env()
 from openai import AsyncOpenAI
 
 from editions import get_edition
-from lib.auto_learn import AutoLearner
-from lib.dag_orchestrator import DAGOrchestrator
-from lib.evolution_engine import EvolutionEngine
-from lib.experience import ExperienceEngine
+from lib.auto_learn.engine import AutoLearner
+from lib.dag.orchestrator import DAGOrchestrator
+from lib.evolution.engine import EvolutionEngine
+from lib.experience.engine import ExperienceEngine
 from lib.identity import load_identity
 from lib.kernel import Kernel
-from lib.lifeline import get_current_commit, git_available
-from lib.loop_cache import LoopCache
-from lib.mirror import Mirror
-from lib.pipeline import list_pipelines, rerun_step, run_gate
+from lib.safety.lifeline import get_current_commit, git_available
+from lib.skills.loop_cache import LoopCache
+from lib.memory.mirror import Mirror
+from lib.quality.pipeline import list_pipelines, rerun_step, run_gate
 from lib.scheduler import CronScheduler
-from lib.skill_loader import SkillLoader
-from lib.skill_router import SkillRouter
+from lib.skills.loader import SkillLoader
+from lib.skills.router import SkillRouter
 from lib.storage import Storage
 from lib.toolkit import auto_scan, get_global, set_global
-from lib.village_connector import VillageConnector
+from lib.multi_agent.village_connector import VillageConnector
 from tools import register_default
 
 try:
@@ -243,7 +243,7 @@ def _check_lifeline():
         logger.warning("LIFELINE 警告: git 不可用，快照功能受限")
         return
     commit = get_current_commit()
-    from lib.lifeline import list_snapshots
+    from lib.safety.lifeline import list_snapshots
 
     snaps = list_snapshots(limit=5)
     if snaps:
@@ -256,7 +256,7 @@ def _check_lifeline():
 
 def _init_sandbox():
     """初始化沙箱安全推演（可被 --edition 和 --arm 模式共用）。"""
-    from lib.sandbox_safety import lint
+    from lib.safety.sandbox_safety import lint
 
     base = Path(__file__).parent
     checks = ["main.py", "lib/kernel.py", "lib/session.py", "lib/toolkit.py", "lib/mirror.py", "editions/__init__.py"]
@@ -286,7 +286,7 @@ def _init_restored_modules():
     """初始化从 v0.5.1 恢复的模块（DAG、Evolution、SkillRouter 等）。"""
     # Skill Router
     try:
-        from lib.skill_router import SkillRouter
+        from lib.skills.router import SkillRouter
         skill_router = SkillRouter()
         set_global("skill_router", skill_router)
         logger.info("Skill Router: initialized")
@@ -295,8 +295,8 @@ def _init_restored_modules():
 
     # DAG Orchestrator
     try:
-        from lib.dag_orchestrator import DAGOrchestrator
-        from lib.dag_agents import register_all as register_dag_agents
+        from lib.dag.orchestrator import DAGOrchestrator
+        from lib.dag.agents import register_all as register_dag_agents
         dag_orch = DAGOrchestrator()
         register_dag_agents(dag_orch)
         set_global("dag_orchestrator", dag_orch)
@@ -306,7 +306,7 @@ def _init_restored_modules():
 
     # Evolution Engine
     try:
-        from lib.evolution_engine import EvolutionEngine
+        from lib.evolution.engine import EvolutionEngine
         evolution_engine = EvolutionEngine()
         set_global("evolution_engine", evolution_engine)
         logger.info("Evolution Engine: initialized")
@@ -349,7 +349,7 @@ async def _startup_guard(storage, mirror, channel, port):
         logger.info("✅ 启动自检全部通过")
         # 🚀 RSI: 初始化进化引擎（实际进化由文件变更触发）
         try:
-            from lib.evolution_engine import EvolutionEngine
+            from lib.evolution.engine import EvolutionEngine
 
             evo_engine = EvolutionEngine()
             set_global("evolution_engine", evo_engine)
@@ -955,7 +955,7 @@ async def feishu_mode(identity_name: str = "default", port: int = 8420, data_dir
     app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
     # ── Lifeline 快照工具 ──
-    from lib.lifeline import take_snapshot
+    from lib.safety.lifeline import take_snapshot
 
     @app.post("/feishu/webhook")
     @app.post("/")
@@ -1116,7 +1116,7 @@ async def feishu_mode(identity_name: str = "default", port: int = 8420, data_dir
 
         接受 Armor 协议格式的请求，自动判断当前 Identity 类型并转发。
         """
-        from lib.battle_protocol import (
+        from lib.multi_agent.battle_protocol import (
             build_task_message,
             make_callback_payload,
             send_callback,

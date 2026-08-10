@@ -16,7 +16,7 @@
 ║    - 不是"存好了等检索"，而是"记忆自动组织自己"               ║
 ║                                                           ║
 ║  用法:                                                      ║
-║    from lib.cognifold import Cognifold                     ║
+║    from lib.memory.cognifold import Cognifold                     ║
 ║    cf = Cognifold(mirror_instance)                         ║
 ║    cf.on_record(content, mtype, tags)  # 记录时触发组织     ║
 ║    intents = cf.check_intents()         # 检查浮现的意图   ║

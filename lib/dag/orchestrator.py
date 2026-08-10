@@ -14,7 +14,7 @@
 ║    3. Safety hooks — 每个步骤执行前都会跑安全检查钩子        ║
 ║                                                           ║
 ║  用法:                                                      ║
-║    from lib.dag_orchestrator import DAGOrchestrator       ║
+║    from lib.dag.orchestrator import DAGOrchestrator       ║
 ║    orch = DAGOrchestrator()                               ║
 ║    result = orch.run(                                     ║
 ║        task="执行每日巡检并生成报告",                        ║
@@ -111,7 +111,7 @@ class DAGOrchestrator:
     def _init_engine(self):
         """懒初始化 DAG 引擎。"""
         if self._dag_engine is None:
-            from lib.dag_engine import DAGEngine
+            from lib.dag.engine import DAGEngine
 
             self._dag_engine = DAGEngine()
 

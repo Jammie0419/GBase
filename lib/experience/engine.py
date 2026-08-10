@@ -16,7 +16,7 @@ v2.3 — 合并反脆弱元认知升级 + 去重逻辑：
 import json
 import logging
 
-from . import storage as store_module
+from .. import storage as store_module
 
 logger = logging.getLogger(__name__)
 

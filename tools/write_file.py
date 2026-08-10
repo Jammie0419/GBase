@@ -24,7 +24,7 @@ async def _async_evolution_check(evolution_engine, rel_path: str, abs_path: str,
     """异步执行进化引擎评估（不阻塞工具返回）。"""
     try:
         import asyncio
-        from lib.evolution_engine import full_evolution_cycle
+        from lib.evolution.engine import full_evolution_cycle
 
         # 计算新文件大小
         new_size = len(content.encode("utf-8"))

@@ -429,7 +429,7 @@ def review(trace_id: str) -> dict[str, Any]:
 
     用法示例（在告别回复中）：
     ```python
-    from lib.trace_review import review
+    from lib.experience.trace_review import review
     trace_id = current_trace.task_id
     review_result = review(trace_id)
     if review_result["experiences"]:

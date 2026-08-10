@@ -5,7 +5,7 @@
 ║  DAG Agent Registry — register cron scripts as DAG engine functions       ║
 ║                                                           ║
 ║  One-shot invocation:                                      ║
-║    from lib.dag_agents import register_all                ║
+║    from lib.dag.agents import register_all                ║
 ║    orch = DAGOrchestrator()                               ║
 ║    register_all(orch)                                     ║
 ║    result = orch.run("execute daily patrol")              ║
@@ -433,7 +433,7 @@ def agent_mirror_decay(inputs: dict, context: dict) -> dict:
 def agent_mirror_review(inputs: dict, context: dict) -> dict:
     """Mirror retrospective review."""
     try:
-        from lib.mirror import Mirror
+        from lib.memory.mirror import Mirror
 
         mirror = Mirror()
         mirror.setup()
@@ -449,7 +449,7 @@ def agent_mirror_review(inputs: dict, context: dict) -> dict:
 def agent_cognifold_concepts(inputs: dict, context: dict) -> dict:
     """Cognifold concept cluster self-organization."""
     try:
-        from lib.cognifold import Cognifold
+        from lib.memory.cognifold import Cognifold
 
         cf = Cognifold()
         events = cf.load_recent_events(limit=50)
@@ -473,7 +473,7 @@ def agent_cognifold_concepts(inputs: dict, context: dict) -> dict:
 def agent_intent_emergence(inputs: dict, context: dict) -> dict:
     """Intent emergence."""
     try:
-        from lib.cognifold import Cognifold
+        from lib.memory.cognifold import Cognifold
 
         cf = Cognifold()
         intents = cf.get_intents()
@@ -545,7 +545,7 @@ def register_all(orchestrator) -> int:
 if __name__ == "__main__":
     """Standalone test: run one daily-patrol after registration."""
     print("Registering DAG agents...")
-    from lib.dag_orchestrator import DAGOrchestrator
+    from lib.dag.orchestrator import DAGOrchestrator
 
     orch = DAGOrchestrator()
     n = register_all(orch)

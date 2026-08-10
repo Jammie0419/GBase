@@ -36,35 +36,35 @@ class TestRestoredModules:
     """Verify all v0.5.1-restored modules import."""
 
     def test_dag_engine(self):
-        mod = importlib.import_module("lib.dag_engine")
+        mod = importlib.import_module("lib.dag.engine")
         assert hasattr(mod, "DAGEngine") or hasattr(mod, "GraphBit")
 
     def test_dag_orchestrator(self):
-        mod = importlib.import_module("lib.dag_orchestrator")
+        mod = importlib.import_module("lib.dag.orchestrator")
         assert hasattr(mod, "DAGOrchestrator")
 
     def test_dag_agents(self):
-        mod = importlib.import_module("lib.dag_agents")
+        mod = importlib.import_module("lib.dag.agents")
         assert mod is not None
 
     def test_evolution_engine(self):
-        mod = importlib.import_module("lib.evolution_engine")
+        mod = importlib.import_module("lib.evolution.engine")
         assert mod is not None
 
     def test_skill_router(self):
-        mod = importlib.import_module("lib.skill_router")
+        mod = importlib.import_module("lib.skills.router")
         assert hasattr(mod, "SkillRouter")
 
     def test_loop_cache(self):
-        mod = importlib.import_module("lib.loop_cache")
+        mod = importlib.import_module("lib.skills.loop_cache")
         assert hasattr(mod, "LoopCache")
 
     def test_village_connector(self):
-        mod = importlib.import_module("lib.village_connector")
+        mod = importlib.import_module("lib.multi_agent.village_connector")
         assert mod is not None
 
     def test_battle_protocol(self):
-        mod = importlib.import_module("lib.battle_protocol")
+        mod = importlib.import_module("lib.multi_agent.battle_protocol")
         assert mod is not None
 
     def test_exec(self):
@@ -77,11 +77,11 @@ class TestRetainedModules:
     """Verify v0.6.1-retained modules import."""
 
     def test_pipeline(self):
-        mod = importlib.import_module("lib.pipeline")
+        mod = importlib.import_module("lib.quality.pipeline")
         assert mod is not None
 
     def test_trace_review(self):
-        mod = importlib.import_module("lib.trace_review")
+        mod = importlib.import_module("lib.experience.trace_review")
         assert mod is not None
 
     def test_monitor(self):
@@ -89,7 +89,7 @@ class TestRetainedModules:
         assert mod is not None
 
     def test_experience(self):
-        mod = importlib.import_module("lib.experience")
+        mod = importlib.import_module("lib.experience.engine")
         assert mod is not None
 
     def test_sleep_cycle(self):

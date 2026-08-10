@@ -21,8 +21,8 @@ from gbase.thinking.middleware import enrich_with_thinking, reflect_on_reply
 from tools.search import search_web
 
 from . import toolkit
-from .experience import ExperienceEngine
-from .mirror import Mirror
+from .experience.engine import ExperienceEngine
+from .memory.mirror import Mirror
 from .session import JsonlSessionManager
 from .tracer import close_trace, get_failure_analysis, init_trace, record_tool_call
 
@@ -188,7 +188,7 @@ async def _async_trace_review(trace_id: str):
     try:
         import asyncio
 
-        from .trace_review import review as _review
+        from .experience.trace_review import review as _review
 
         result = await asyncio.to_thread(_review, trace_id)
         if result and result.get("experiences_count", 0) > 0:
@@ -453,7 +453,7 @@ class Kernel:
         self._archive_store = None
         if data_dir:
             try:
-                from .archive_store import ArchiveStore
+                from .memory.archive_store import ArchiveStore
 
                 _archive_db_path = Path(data_dir) / "archive.db"
                 self._archive_store = ArchiveStore(session_key="global", db_path=_archive_db_path)
@@ -512,7 +512,7 @@ class Kernel:
 
         # ── Skill Router（SkillRouter + SkillLoader 双层匹配） ──
         if self.skill_loader:
-            from .skill_router import SkillRouter
+            from .skills.router import SkillRouter
 
             router = SkillRouter(
                 self.skill_loader,
@@ -1169,7 +1169,7 @@ class Kernel:
         # ── 7. 自进化：自动触发 trace 复盘分析 ──
         # 从 trace 中提取决策链复盘、模式识别、行动建议
         try:
-            from .trace_review import review as _trace_review
+            from .experience.trace_review import review as _trace_review
 
             # 只有工具调用 >= 3 次才值得复盘（太少没有分析价值）
             if _this_turn_tools >= 3:
@@ -1903,7 +1903,7 @@ class Kernel:
             # ── refraction：工具调用后步骤级反思（完整版） ──
             # 使用 RefractionEngine 评估工具调用结果
             try:
-                from .refraction import evaluate_tool_call
+                from .evolution.refraction import evaluate_tool_call
 
                 refraction_result = evaluate_tool_call(
                     tool_name=func_name,

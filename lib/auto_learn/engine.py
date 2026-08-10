@@ -17,7 +17,7 @@ import os
 import time
 from pathlib import Path
 
-from lib.rss_fetcher import fetch_topic, load_rss_topics
+from lib.auto_learn.rss_fetcher import fetch_topic, load_rss_topics
 
 logger = logging.getLogger(__name__)
 

@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 async def _async_evolution_check(evolution_engine, rel_path: str, abs_path: str, content: str, old_size: int):
     """异步执行进化引擎评估（不阻塞工具返回）。"""
     try:
-        from lib.evolution_engine import full_evolution_cycle
+        from lib.evolution.engine import full_evolution_cycle
 
         # 计算新文件大小
         new_size = len(content.encode("utf-8"))

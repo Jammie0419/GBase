@@ -22,7 +22,7 @@
 ║    └────────────┘   └──────────┘   └───────────────┘   ║
 ║                                                         ║
 ║  Usage:                                                 ║
-║    from lib.dag_engine import DAGEngine, DAGWorkflow    ║
+║    from lib.dag.engine import DAGEngine, DAGWorkflow    ║
 ║    engine = DAGEngine()                                 ║
 ║    wf = engine.load("patrol")                           ║
 ║    result = engine.execute(wf, context={})              ║

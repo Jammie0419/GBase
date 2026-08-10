@@ -361,7 +361,7 @@ async def apply_evolution_plan(
     plan: list[dict], project_root: Path, max_changes: int
 ) -> list[dict]:
     """应用进化方案（带质量评估）。"""
-    from lib.evolution_evaluator import evaluate_before_apply, evaluate_after_apply
+    from lib.evolution.evaluator import evaluate_before_apply, evaluate_after_apply
 
     applied = []
 

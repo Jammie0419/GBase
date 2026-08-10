@@ -12,8 +12,8 @@ remove_learn_topic: 删除一个学习方向
 import json
 import logging
 
-from lib.auto_learn import load_topics, save_topics
-from lib.rss_fetcher import load_rss_topics, save_rss_topics
+from lib.auto_learn.engine import load_topics, save_topics
+from lib.auto_learn.rss_fetcher import load_rss_topics, save_rss_topics
 from lib.toolkit import tool
 
 logger = logging.getLogger(__name__)
