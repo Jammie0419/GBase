@@ -165,6 +165,9 @@ _tool_metadata: dict[str, dict] = {}
 _gbase_tool_names: set[str] = set()
 """从 .gbase/data/tools/ 加载的工具名（项目级覆盖，始终可用）"""
 
+_gbase_tools_scan_time: float = 0.0
+"""上次扫描 .gbase/data/tools/ 的时间戳"""
+
 _toolsets: dict[str, dict] = {}
 """{
     "toolset_name": {
@@ -374,11 +377,15 @@ def resolve_tools(platform: str, user_message: str | list | dict) -> list[dict]:
     """根据平台和用户消息关键词，解析可用的工具定义列表（OpenAI format）。
 
     流程：
+    0. 热加载 .gbase/data/tools/ 中的新工具（每 5 秒检查一次）
     1. 根据 platform 从 platform_map 获取允许的工具集名
     2. 遍历工具集，检查用户消息中的关键词
     3. 匹配到的工具集的工具 + 保底工具集的工具
     4. 返回 OpenAI tool format 的列表
     """
+    # ── 热加载项目级工具 ──
+    hot_reload_gbase_tools()
+
     allowed_toolsets = _platform_map.get(platform, [])
     if not allowed_toolsets:
         # 没有平台限制，给所有工具
@@ -531,6 +538,72 @@ def auto_scan(path: str = "tools"):
 
     # 加载后验证：每个已注册工具必须 callable + schema 完整
     _validate_tool_registry()
+
+    global _gbase_tools_scan_time
+    import time as _time
+    _gbase_tools_scan_time = _time.time()
+
+
+def hot_reload_gbase_tools(min_interval: float = 5.0):
+    """热加载 .gbase/data/tools/ 中的新工具（不重启服务器）。
+
+    每次调用时检查目录中是否有新文件，有则加载。
+    通过 min_interval 控制检查频率，避免频繁 I/O。
+
+    Returns:
+        新加载的工具名列表（空列表表示无变化）
+    """
+    import importlib
+    import importlib.util
+    import os
+    import time as _time
+
+    from lib.compat import GBASE_TOOLS_DIR
+
+    global _gbase_tools_scan_time
+
+    now = _time.time()
+    if now - _gbase_tools_scan_time < min_interval:
+        return []
+
+    _gbase_tools_scan_time = now
+    gbase_tools_dir = str(GBASE_TOOLS_DIR)
+
+    if not os.path.isdir(gbase_tools_dir):
+        return []
+
+    new_tools = []
+    # 只扫描尚未加载的文件
+    loaded_files = {f for f in os.listdir(gbase_tools_dir) if f.endswith(".py") and not f.startswith("_")}
+    # 通过比较注册表来推断已加载的文件（简化处理：重新扫描整个目录）
+    pre_keys = set(_tool_registry.keys())
+
+    for fname in sorted(loaded_files):
+        mod_name = f"_gbase_{fname[:-3]}"
+        # 检查模块是否已加载（通过 sys.modules 判断）
+        if mod_name in __builtins__ if isinstance(__builtins__, dict) else False:
+            continue
+        import sys
+        if mod_name in sys.modules:
+            continue  # 已加载，跳过
+
+        filepath = os.path.join(gbase_tools_dir, fname)
+        spec = importlib.util.spec_from_file_location(mod_name, filepath)
+        if spec and spec.loader:
+            try:
+                spec.loader.exec_module(importlib.util.module_from_spec(spec))
+                added = set(_tool_registry.keys()) - pre_keys
+                _gbase_tool_names.update(added)
+                new_tools.extend(added)
+                if added:
+                    logger.info("热加载项目工具: %s (%s)", ", ".join(sorted(added)), fname)
+            except Exception as e:
+                logger.warning("热加载失败 %s: %s", fname, e)
+
+    if new_tools:
+        _validate_tool_registry()
+
+    return new_tools
 
 
 # ── 工具定义查询 ────────────────────────────────────────
