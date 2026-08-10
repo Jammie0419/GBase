@@ -245,6 +245,17 @@
   .session-list::-webkit-scrollbar-track { background: transparent; }
   .session-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
+  .session-group-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-dim);
+    padding: 10px 12px 4px;
+    margin-top: 4px;
+  }
+  .session-group-label:first-child { margin-top: 0; padding-top: 4px; }
+
   .session-item {
     display: flex;
     align-items: center;
@@ -802,12 +813,24 @@
           </div>
           <div class="mind-section-body open" id="metricsSection">
             <div class="mind-metric">
+              <span class="label">Model</span>
+              <span class="value" id="metricModel" style="font-size:11px;">—</span>
+            </div>
+            <div class="mind-metric">
               <span class="label">Messages</span>
               <span class="value" id="metricMsgs">0</span>
             </div>
             <div class="mind-metric">
               <div class="label">Tools Called</div>
               <div class="value" id="metricTools">0</div>
+            </div>
+            <div class="mind-metric">
+              <div class="label">Response Time</div>
+              <div class="value" id="metricRespTime">—</div>
+            </div>
+            <div class="mind-metric">
+              <div class="label">Tokens (est.)</div>
+              <div class="value" id="metricTokens">—</div>
             </div>
             <div class="mind-metric">
               <div class="label">Files Uploaded</div>
@@ -842,6 +865,7 @@ let isProcessing = false;
 let reconnectAttempts = 0;
 let currentSessionId = null;
 let sessions = [];  // list of session metadata
+let requestStartTime = 0;  // for response time tracking
 
 const input = document.getElementById('input');
 const messages = document.getElementById('messages');
@@ -919,6 +943,8 @@ function handleMessage(data) {
       if (data.model) {
         const mn = document.getElementById('modelName');
         if (mn) mn.textContent = data.model;
+        const mm = document.getElementById('metricModel');
+        if (mm) mm.textContent = data.model;
       }
       break;
 
@@ -943,6 +969,7 @@ function handleMessage(data) {
     case 'status':
       if (data.content === 'processing') {
         isProcessing = true;
+        requestStartTime = Date.now();
         showTyping();
       }
       break;
@@ -964,6 +991,17 @@ function handleMessage(data) {
       removeTyping();
       finalizeMessage(data.content);
       updateMetrics(data.meta);
+      // Response time
+      if (requestStartTime > 0) {
+        const elapsed = ((Date.now() - requestStartTime) / 1000).toFixed(1);
+        document.getElementById('metricRespTime').textContent = elapsed + 's';
+        requestStartTime = 0;
+      }
+      // Token estimate (~2 chars/token for mixed CJK/ASCII)
+      if (data.content) {
+        const estTokens = Math.ceil(data.content.length / 2);
+        document.getElementById('metricTokens').textContent = estTokens.toLocaleString();
+      }
       // Refresh session list after a response (title may have updated)
       if (data.meta && data.meta.session_id) {
         currentSessionId = data.meta.session_id;
@@ -1270,25 +1308,51 @@ function renderSessionList() {
     sessionList.innerHTML = '<div class="sidebar-empty">暂无聊天记录<br>开始新对话吧 ✨</div>';
     return;
   }
-  sessionList.innerHTML = sessions.map(s => {
-    const isActive = s.session_id === currentSessionId;
-    const timeStr = formatTimestamp(s.last_ts || s.first_ts);
-    const msgCount = s.message_count || 0;
-    const title = escapeHtml(s.title || '新对话');
-    return `
-      <div class="session-item ${isActive ? 'active' : ''}" data-session-id="${s.session_id}" onclick="loadSession('${s.session_id}')">
-        <div class="session-item-content">
-          <div class="session-item-title">${title}</div>
-          <div class="session-item-meta">
-            <span>${timeStr}</span>
-            <span>·</span>
-            <span>${msgCount} 条</span>
+
+  // 按时间分组：今天 / 昨天 / 近7天 / 更早
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() / 1000;
+  const yesterdayStart = todayStart - 86400;
+  const weekStart = todayStart - 7 * 86400;
+
+  const groups = { '今天': [], '昨天': [], '近 7 天': [], '更早': [] };
+  for (const s of sessions) {
+    const ts = s.last_ts || s.first_ts || 0;
+    if (ts >= todayStart) groups['今天'].push(s);
+    else if (ts >= yesterdayStart) groups['昨天'].push(s);
+    else if (ts >= weekStart) groups['近 7 天'].push(s);
+    else groups['更早'].push(s);
+  }
+
+  let html = '';
+  for (const [label, items] of Object.entries(groups)) {
+    if (!items.length) continue;
+    html += `<div class="session-group-label">${label}</div>`;
+    for (const s of items) {
+      const isActive = s.session_id === currentSessionId;
+      const timeStr = formatTimestamp(s.last_ts || s.first_ts);
+      const msgCount = s.message_count || 0;
+      const title = escapeHtml(s.title || '新对话');
+      html += `
+        <div class="session-item ${isActive ? 'active' : ''}" data-session-id="${s.session_id}" onclick="loadSession('${s.session_id}')">
+          <div class="session-item-content">
+            <div class="session-item-title">${title}</div>
+            <div class="session-item-meta">
+              <span>${timeStr}</span>
+              <span>·</span>
+              <span>${msgCount} 条</span>
+            </div>
           </div>
+          <button class="session-delete-btn" onclick="event.stopPropagation(); deleteSession('${s.session_id}')" title="删除">✕</button>
         </div>
-        <button class="session-delete-btn" onclick="event.stopPropagation(); deleteSession('${s.session_id}')" title="删除">✕</button>
-      </div>
-    `;
-  }).join('');
+      `;
+    }
+  }
+  sessionList.innerHTML = html;
+
+  // 滚动到活跃会话
+  const activeEl = sessionList.querySelector('.session-item.active');
+  if (activeEl) activeEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 }
 
 async function loadSession(sessionId) {
