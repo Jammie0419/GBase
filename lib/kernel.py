@@ -478,10 +478,28 @@ class Kernel:
         拼装顺序参考 OpenClaw 的 buildAgentSystemPrompt + CONTEXT_FILE_ORDER。
         """
         import os
+        import platform
         from datetime import datetime
         from pathlib import Path
 
         parts = [self.base_system_prompt]
+
+        # ── 运行环境信息注入（让 Agent 知道在什么系统上运行）──
+        env_info = f"""## 运行环境
+- **操作系统**: {platform.system()} {platform.release()}
+- **架构**: {platform.machine()}
+- **Python**: {platform.python_version()}
+- **工作目录**: {os.getcwd()}
+"""
+        if platform.system() == "Windows":
+            env_info += """- **Shell**: cmd.exe / PowerShell（不是 bash）
+- **注意**: 使用 Windows 命令（dir, type, echo 等），不要用 Linux 命令（ls, cat, pwd 等）
+"""
+        else:
+            env_info += """- **Shell**: bash / sh
+- **注意**: 使用标准 Unix 命令（ls, cat, pwd 等）
+"""
+        parts.append(env_info)
 
         # ── 工具列表注入（精简版：分类标签，不展开 schema） ──
         from .toolkit import tool_list_compact

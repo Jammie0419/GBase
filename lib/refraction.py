@@ -28,7 +28,35 @@ _REFRACTION_RULES = [
         "name": "error_persistent",
         "check": lambda ctx: ctx.get("consecutive_errors", 0) >= 3,
         "verdict": "fail",
-        "recommendation": "连续失败 {consecutive_errors} 次，建议换方案或检查参数",
+        "recommendation": "⚠️ 连续失败 {consecutive_errors} 次！必须立即停止当前方案，重新规划。检查：1) 工具参数是否正确 2) 是否需要换用其他工具 3) 环境是否就绪",
+        "severity": "high",
+    },
+    {
+        "name": "command_not_found",
+        "check": lambda ctx: (
+            ctx.get("has_error", False)
+            and any(
+                keyword in ctx.get("error_msg", "").lower()
+                for keyword in [
+                    "not recognized",  # Windows: 'pwd' is not recognized
+                    "不是内部或外部命令",  # Windows Chinese
+                    "command not found",  # Linux/Mac
+                    "未找到命令",  # Linux Chinese
+                ]
+            )
+        ),
+        "verdict": "fail",
+        "recommendation": "🚫 命令不存在！立即检查操作系统环境。Windows 使用 dir/type/echo，Linux/Mac 使用 ls/cat/echo。不要混用！",
+        "severity": "high",
+    },
+    {
+        "name": "tool_loop_detected",
+        "check": lambda ctx: (
+            ctx.get("same_tool_failures", 0) >= 2
+            and ctx.get("consecutive_errors", 0) >= 2
+        ),
+        "verdict": "fail",
+        "recommendation": "🔄 检测到工具循环失败！同一工具连续失败 {same_tool_failures} 次。必须换用其他工具或彻底改变方案！",
         "severity": "high",
     },
     {
@@ -109,6 +137,8 @@ class RefractionEngine:
             "consecutive_errors": 0,
             "total_calls": 0,
             "total_errors": 0,
+            "last_tool_name": None,
+            "same_tool_failures": 0,  # 同一工具连续失败次数
         }
 
     def evaluate(
@@ -142,8 +172,16 @@ class RefractionEngine:
         if has_error:
             self._context["consecutive_errors"] += 1
             self._context["total_errors"] += 1
+            # 跟踪同一工具连续失败
+            if self._context["last_tool_name"] == tool_name:
+                self._context["same_tool_failures"] += 1
+            else:
+                self._context["same_tool_failures"] = 1
+            self._context["last_tool_name"] = tool_name
         else:
             self._context["consecutive_errors"] = 0
+            self._context["same_tool_failures"] = 0
+            self._context["last_tool_name"] = tool_name
 
         # 构建评估上下文
         result_str = json.dumps(result, ensure_ascii=False) if result else ""
@@ -228,6 +266,8 @@ class RefractionEngine:
             "consecutive_errors": 0,
             "total_calls": 0,
             "total_errors": 0,
+            "last_tool_name": None,
+            "same_tool_failures": 0,
         }
 
 

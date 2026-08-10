@@ -90,8 +90,10 @@ async def run(
                 "_partial": True,
             }
 
-        out_text = stdout.decode("utf-8", errors="replace")
-        err_text = stderr.decode("utf-8", errors="replace")
+        # Windows 命令行输出是 GBK 编码，Linux/Mac 是 UTF-8
+        encoding = "gbk" if IS_WINDOWS else "utf-8"
+        out_text = stdout.decode(encoding, errors="replace")
+        err_text = stderr.decode(encoding, errors="replace")
 
         return {
             "success": proc.returncode == 0,

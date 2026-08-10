@@ -219,19 +219,37 @@ def get_failure_analysis() -> dict:
     steps = _current_trace["steps"]
     passed_before_fail = 0
     failed = None
+    total_tool_calls = 0
+    failed_tool_calls = 0
 
+    # 统计工具调用情况
     for s in steps:
-        if s.get("_type") == "tool_call" and s.get("status") == "error":
-            failed = s
-            break
         if s.get("_type") == "tool_call":
-            passed_before_fail += 1
+            total_tool_calls += 1
+            if s.get("status") == "error":
+                failed_tool_calls += 1
+                if failed is None:
+                    failed = s
+            else:
+                if failed is None:
+                    passed_before_fail += 1
 
+    # 如果没有失败，直接返回
     if not failed:
         return {
             "has_failure": False,
             "passed_steps": len(steps),
             "suggestion": None,
+        }
+
+    # 关键改进：如果失败的工具调用占比 < 50%，且有成功的工具调用，不算整体失败
+    # 这避免了"部分工具失败但任务成功"被误判为 failed
+    if total_tool_calls > 0 and failed_tool_calls / total_tool_calls < 0.5:
+        # 失败占比小于 50%，且有成功的工具调用，认为是部分成功
+        return {
+            "has_failure": False,
+            "passed_steps": total_tool_calls - failed_tool_calls,
+            "suggestion": f"有 {failed_tool_calls}/{total_tool_calls} 个工具调用失败，但任务整体成功",
         }
 
     # 失败类型推断
