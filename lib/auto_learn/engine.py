@@ -18,6 +18,7 @@ import time
 from pathlib import Path
 
 from lib.auto_learn.rss_fetcher import fetch_topic, load_rss_topics
+from lib.compat import GBASE_DATA_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +37,7 @@ DEFAULT_LEARN_TOPICS = [
 
 
 # 配置文件路径
-CONFIG_DIR = Path(__file__).parent.parent.parent / "data"
+CONFIG_DIR = GBASE_DATA_DIR
 TOPICS_PATH = CONFIG_DIR / "learn_topics.json"
 
 

@@ -24,6 +24,8 @@ import json
 import logging
 from pathlib import Path
 
+from lib.compat import GBASE_DATA_DIR
+
 logger = logging.getLogger(__name__)
 
 SYNONYM_MAP = {
@@ -208,7 +210,7 @@ class SkillRouter:
 
         try:
             # 写入 data/skill_usage.jsonl
-            usage_file = Path(__file__).resolve().parent.parent.parent / "data" / "skill_usage.jsonl"
+            usage_file = GBASE_DATA_DIR / "skill_usage.jsonl"
             usage_file.parent.mkdir(parents=True, exist_ok=True)
 
             entry = {

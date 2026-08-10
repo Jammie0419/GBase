@@ -33,6 +33,8 @@ import time
 from collections import OrderedDict
 from pathlib import Path
 
+from lib.compat import GBASE_DATA_DIR, GBASE_DB_DIR, GBASE_ARCHIVE_TRASH_DIR
+
 logger = logging.getLogger(__name__)
 
 # ─── Default configuration ──────────────────────────────────────
@@ -82,7 +84,7 @@ class ArchiveStore:
         self._hot_cache_ttl = _HOT_CACHE_TTL_SEC
 
         if db_path is None:
-            data_dir = Path(__file__).parent.parent.parent / "data"
+            data_dir = GBASE_DB_DIR
             data_dir.mkdir(parents=True, exist_ok=True)
             db_path = data_dir / "archive.db"
             dat_db = data_dir / "dat.db"
@@ -916,11 +918,9 @@ def _save_trash(session_key: str, rows: list[tuple]):
     """将 archive 清理掉的旧记录存入 trash JSONL（纯文本，可 grep）。
 
     每行一条 JSON：{"ts": ..., "role": ..., "content": ..., "source": ...}
-    文件：data/archive_trash/{sanitized_key}.jsonl
+    文件：.gbase/data/archive_trash/{sanitized_key}.jsonl
     """
-    from pathlib import Path as _Path
-
-    trash_dir = _Path(__file__).parent.parent.parent / "data" / "archive_trash"
+    trash_dir = GBASE_ARCHIVE_TRASH_DIR
     trash_dir.mkdir(parents=True, exist_ok=True)
 
     # session_key 可能有特殊字符，做安全文件名
@@ -956,7 +956,8 @@ def recent_global(limit: int = 10, hours: int = 72) -> dict:
 
     # 找 archive.db（尝试多个位置）
     candidates = [
-        os.path.join(os.path.dirname(__file__), "..", "..", "data", "archive.db"),
+        str(GBASE_DB_DIR / "archive.db"),
+        str(GBASE_DB_DIR / "dat.db"),  # legacy name
         os.path.expanduser("~/poseidon-home/data/archive.db"),
         os.path.expanduser("~/gundam-home/data/archive.db"),
     ]

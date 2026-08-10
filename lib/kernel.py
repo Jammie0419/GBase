@@ -16,6 +16,8 @@ from collections import defaultdict
 
 from openai import AsyncOpenAI
 
+from lib.compat import GBASE_HOME, GBASE_DATA_DIR, GBASE_METRICS_DIR, GBASE_SKILLS_DIR
+
 # ── Thinking Lever (v0.6.0) ──
 from gbase.thinking.middleware import enrich_with_thinking, reflect_on_reply
 from tools.search import search_web
@@ -516,7 +518,7 @@ class Kernel:
 
             router = SkillRouter(
                 self.skill_loader,
-                os.path.join(os.getcwd(), "skills-index.json"),
+                str(GBASE_HOME / "skills-index.json"),
             )
             user_msg = self._current_user_message or ""
             route_result = router.get_route_instruction(user_msg, inject_lines=20)
@@ -664,7 +666,7 @@ class Kernel:
         )
 
         # ── 动态部分（HEARTBEAT.md）放到 cache boundary 之后 ──
-        hb_path = os.path.join(os.getcwd(), "HEARTBEAT.md")
+        hb_path = str(GBASE_HOME / "HEARTBEAT.md")
         if os.path.isfile(hb_path):
             try:
                 hb_content = Path(hb_path).read_text(encoding="utf-8")[:8000]
@@ -1278,7 +1280,7 @@ class Kernel:
         if not self._data_dir:
             return
 
-        metrics_dir = Path(self._data_dir) / "metrics"
+        metrics_dir = GBASE_METRICS_DIR
         metrics_dir.mkdir(parents=True, exist_ok=True)
 
         now_ts = entry.get("ts", time.time())

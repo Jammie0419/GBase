@@ -18,14 +18,12 @@ import os
 import secrets
 import shutil
 from datetime import datetime, timedelta
+from pathlib import Path
 
-# 默认备份目录：云端 GBASE_HOME/.backups，本地 ~/opprime/.backups
-_default_backup = os.environ.get("GBASE_BACKUP_DIR", "")
-if not _default_backup:
-    # 优先使用 GBASE_HOME 环境变量，否则使用用户主目录
-    gbase_home = os.environ.get("GBASE_HOME", os.path.expanduser("~"))
-    _default_backup = os.path.join(gbase_home, ".backups")
-BACKUP_DIR = _default_backup
+from lib.compat import GBASE_BACKUP_DIR
+
+# 备份目录：.gbase/.backups/
+BACKUP_DIR = str(GBASE_BACKUP_DIR)
 INDEX_PATH = os.path.join(BACKUP_DIR, "index.json")
 
 # 核心文件路径（修改前自动创建🔴检查点，而不仅仅是📦备份）

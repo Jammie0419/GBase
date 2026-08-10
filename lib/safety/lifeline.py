@@ -23,15 +23,15 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from lib.compat import get_disk_usage_percent
+from lib.compat import GBASE_HOME, GBASE_DATA_DIR, GBASE_BACKUP_DIR, get_disk_usage_percent
 
 logger = logging.getLogger(__name__)
 
 # ── 配置 ──
-ROOT = Path(__file__).resolve().parent.parent.parent
+ROOT = GBASE_HOME
 GIT_DIR = ROOT / ".git"
-SNAPSHOT_LOG = ROOT / "data" / "snapshots.json"
-BACKUP_DIR = ROOT / ".backups"
+SNAPSHOT_LOG = GBASE_DATA_DIR / "snapshots.json"
+BACKUP_DIR = GBASE_BACKUP_DIR
 MAX_BACKUPS = 10
 
 
@@ -109,10 +109,7 @@ def take_snapshot(reason: str = "") -> dict:
             "--exclude=.git",
             "--exclude=__pycache__",
             "--exclude=*.pyc",
-            "--exclude=data/dat.db*",
-            "--exclude=data/sessions",
-            "--exclude=data/traces",
-            "--exclude=.backups",
+            "--exclude=.gbase",
             "--exclude=*.log",
             "--exclude=nohup.out",
         ]

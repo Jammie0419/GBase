@@ -28,6 +28,8 @@ import time
 from pathlib import Path
 from typing import Optional
 
+from lib.compat import GBASE_BACKUP_DIR, GBASE_EVOLUTION_DIR
+
 from lib.toolkit import tool
 
 logger = logging.getLogger(__name__)
@@ -452,7 +454,7 @@ async def apply_evolution_plan(
 def backup_file(file_path: Path, project_root: Path) -> Optional[Path]:
     """备份文件。"""
     try:
-        backup_dir = project_root / ".evolution" / "backups"
+        backup_dir = GBASE_BACKUP_DIR
         backup_dir.mkdir(parents=True, exist_ok=True)
 
         timestamp = time.strftime("%Y%m%d_%H%M%S")
@@ -510,7 +512,8 @@ def log_evolution(
 ):
     """记录进化日志。"""
     try:
-        log_file = project_root / "evolution-log.md"
+        log_file = GBASE_EVOLUTION_DIR / "evolution-log.md"
+        log_file.parent.mkdir(parents=True, exist_ok=True)
 
         existing = ""
         if log_file.exists():

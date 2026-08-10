@@ -24,6 +24,8 @@ import time
 from pathlib import Path
 from typing import Optional
 
+from lib.compat import GBASE_HOME
+
 logger = logging.getLogger(__name__)
 
 
@@ -31,7 +33,7 @@ class EvolutionEvaluator:
     """进化质量评估器。"""
 
     def __init__(self):
-        self.project_root = Path(__file__).resolve().parent.parent.parent
+        self.project_root = GBASE_HOME
         self._evaluation_log = []
 
         # 质量阈值

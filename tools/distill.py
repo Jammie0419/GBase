@@ -25,6 +25,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from lib.compat import GBASE_DATA_DIR
 from lib.toolkit import tool
 
 logging.basicConfig(
@@ -35,11 +36,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 OPPRIME_DIR = Path(__file__).resolve().parent.parent
-DATA_DIR = OPPRIME_DIR / "data"
-EXPORT_DIR = OPPRIME_DIR / "training_data"
+DATA_DIR = GBASE_DATA_DIR  # Use unified data directory
+EXPORT_DIR = GBASE_DATA_DIR / "training_data"
 MODELS_DIR = OPPRIME_DIR / "opprime-core" / "models"
 
-EXPORT_DIR.mkdir(exist_ok=True)
+# Directory will be created when needed by export function
 
 
 # ═══════════════════════════════════════════

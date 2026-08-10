@@ -19,6 +19,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+from lib.compat import GBASE_EVOLUTION_DIR
+
 logger = logging.getLogger(__name__)
 
 
@@ -145,7 +147,8 @@ class SelfImprovingEngine:
     def _log_improvements(self, entry_type: str, summary: str, improvements: list[dict]):
         """记录改进到日志文件。"""
         try:
-            log_file = Path(__file__).parent.parent.parent / "self-improving-log.md"
+            log_file = GBASE_EVOLUTION_DIR / "self-improving-log.md"
+            log_file.parent.mkdir(parents=True, exist_ok=True)
 
             existing = ""
             if log_file.exists():

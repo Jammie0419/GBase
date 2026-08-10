@@ -12,6 +12,7 @@ from pathlib import Path
 
 import httpx
 
+from lib.compat import GBASE_DATA_DIR
 from lib.toolkit import get_global, tool
 
 logger = logging.getLogger(__name__)
@@ -94,7 +95,7 @@ async def feishu_send_file(file_path: str = "", url: str = "", file_type: str = 
                 if not orig_name.endswith(ext):
                     orig_name = f"{orig_name}{ext}"
 
-                save_dir = Path("data/downloaded_files")
+                save_dir = GBASE_DATA_DIR / "downloaded_files"
                 save_dir.mkdir(parents=True, exist_ok=True)
                 save_path = save_dir / orig_name
                 save_path.write_bytes(resp.content)

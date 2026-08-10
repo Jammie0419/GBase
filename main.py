@@ -55,8 +55,8 @@ logger = logging.getLogger("opprime")
 
 def _setup_log_rotation():
     """配置文件日志按日期切割，保留 90 天。"""
-    data_dir = os.environ.get("GBASE_DATA_DIR", str(Path(__file__).parent / "data"))
-    log_dir = Path(data_dir)
+    from lib.compat import GBASE_LOG_DIR
+    log_dir = GBASE_LOG_DIR
     log_dir.mkdir(parents=True, exist_ok=True)
     file_handler = logging.handlers.TimedRotatingFileHandler(
         str(log_dir / "gbase.log"),
@@ -378,15 +378,14 @@ async def _periodic_wal_checkpoint(storage):
 async def _run_web(port: int = 8775):
     """Web 聊天模式（浏览器界面）。可选功能，通过 --web 启动。"""
     import uvicorn
+    from lib.compat import GBASE_DATA_DIR, GBASE_LOG_DIR
 
-    os.environ.setdefault("GBASE_DATA_DIR", str(Path(__file__).parent / "data"))
-
-    data_dir = os.environ.get("GBASE_DATA_DIR", str(Path(__file__).parent / "data"))
-    Path(data_dir).mkdir(parents=True, exist_ok=True)
+    data_dir = GBASE_DATA_DIR
+    data_dir.mkdir(parents=True, exist_ok=True)
 
     # Web 模式单独的日志文件（按日期切割，保留 90 天）
     web_log_handler = logging.handlers.TimedRotatingFileHandler(
-        str(Path(data_dir) / "gbase-web.log"),
+        str(GBASE_LOG_DIR / "gbase-web.log"),
         when="midnight",
         interval=1,
         backupCount=90,
@@ -513,9 +512,10 @@ async def cli_mode(identity_name: str = "default"):
     storage = Storage(data_dir=_data_dir)
     if _data_dir:
         # 种子经验：如果 Armor 经验库为空，从主库拷贝 Prime 种子
+        from lib.compat import GBASE_EXPERIENCE_DIR
         exp_path = Path(_data_dir) / "experience.jsonl"
         if not exp_path.exists():
-            src_path = Path(__file__).parent / "data" / "experience.jsonl"
+            src_path = GBASE_EXPERIENCE_DIR / "experience.jsonl"
             if src_path.exists():
                 import shutil
 
@@ -686,9 +686,10 @@ async def feishu_mode(identity_name: str = "default", port: int = 8420, data_dir
     storage = Storage(data_dir=data_dir)
     if data_dir:
         # 种子经验：如果 Armor 经验库为空，从主库拷贝 Prime 种子
+        from lib.compat import GBASE_EXPERIENCE_DIR
         exp_path = Path(data_dir) / "experience.jsonl"
         if not exp_path.exists():
-            src_path = Path(__file__).parent / "data" / "experience.jsonl"
+            src_path = GBASE_EXPERIENCE_DIR / "experience.jsonl"
             if src_path.exists():
                 import shutil
 
@@ -885,17 +886,21 @@ async def feishu_mode(identity_name: str = "default", port: int = 8420, data_dir
                 """睡眠周期回调：session 压缩 + mirror 修剪 + 梯度汇总 + baseline 自动保存。"""
                 logger.info("💤 睡眠周期开始 (job=%d)", job_id)
                 try:
+                    from lib.compat import GBASE_DATA_DIR, GBASE_DB_DIR, GBASE_METRICS_DIR
+                    _data_dir = Path(data_dir) if data_dir else GBASE_DATA_DIR
+                    _db_dir = GBASE_DB_DIR
+
                     report = run_sleep_cycle(
-                        mirror_db=mirror._db_path if hasattr(mirror, "_db_path") else str(Path(data_dir or "data") / "mirror.db"),
+                        mirror_db=mirror._db_path if hasattr(mirror, "_db_path") else str(_db_dir / "mirror.db"),
                         storage=storage,
-                        session_dir=str(Path(data_dir or "data") / "sessions"),
+                        session_dir=str(_data_dir / "sessions"),
                         mirror_instance=mirror,
                     )
 
                     # Phase 1: 自动保存 mirror baseline
                     baseline_path = ""
                     try:
-                        metrics_dir = Path(data_dir or "data") / "metrics"
+                        metrics_dir = GBASE_METRICS_DIR
                         metrics_dir.mkdir(parents=True, exist_ok=True)
                         baseline_path = mirror.save_baseline(label="auto", data_dir=str(metrics_dir))
                         if baseline_path:
@@ -905,7 +910,7 @@ async def feishu_mode(identity_name: str = "default", port: int = 8420, data_dir
 
                     # Phase 2: defragment — 为经验库加推论阶梯标签 & metrics
                     try:
-                        metrics_dir = Path(data_dir or "data") / "metrics"
+                        metrics_dir = GBASE_METRICS_DIR
                         qf = metrics_dir / "rsi_quality.jsonl"
                         qcount = len(qf.read_text(encoding="utf-8").strip().split("\n")) if qf.exists() else 0
                         lf = metrics_dir / "rsi_ladder.jsonl"
@@ -1093,7 +1098,8 @@ async def feishu_mode(identity_name: str = "default", port: int = 8420, data_dir
     @app.get("/pipeline/status/{pipeline_id}")
     async def pipeline_detail(pipeline_id: str):
         """查询单个管道状态。"""
-        result_file = Path(__file__).parent / "data" / "pipelines" / pipeline_id / "result.json"
+        from lib.compat import GBASE_PIPELINES_DIR
+        result_file = GBASE_PIPELINES_DIR / pipeline_id / "result.json"
         if not result_file.exists():
             return {"error": f"管道 {pipeline_id} 不存在"}
         try:
@@ -1367,8 +1373,9 @@ def main():
             return
 
         # 创建 Armor identity 目录 + 经验库目录
+        from lib.compat import GBASE_HOME, GBASE_DATA_DIR
         identity_dir = Path(cfg["identity"])
-        data_dir = Path(__file__).parent / cfg["data_dir"]
+        data_dir = GBASE_DATA_DIR / cfg.get("data_dir", "arms") / arm_name
         identity_dir.mkdir(parents=True, exist_ok=True)
         data_dir.mkdir(parents=True, exist_ok=True)
 

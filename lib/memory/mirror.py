@@ -27,9 +27,11 @@ import threading
 import time
 from pathlib import Path
 
+from lib.compat import GBASE_DB_DIR
+
 logger = logging.getLogger(__name__)
 
-DATA_DIR = Path(__file__).parent.parent.parent / "data"
+DATA_DIR = GBASE_DB_DIR
 MIRROR_DB = DATA_DIR / "mirror.db"
 
 

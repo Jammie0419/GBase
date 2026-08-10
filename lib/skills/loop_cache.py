@@ -17,7 +17,9 @@ import time
 from pathlib import Path
 from typing import Any
 
-CACHE_DIR = Path(os.path.expanduser("~/.gbase/loop_cache"))
+from lib.compat import GBASE_HOME
+
+CACHE_DIR = GBASE_HOME / "loop_cache"
 TEMPLATES_FILE = CACHE_DIR / "templates.json"
 TRACES_DIR = CACHE_DIR / "traces"
 TTL_HOURS = 4  # 缓存有效期

@@ -21,12 +21,14 @@ import time
 from pathlib import Path
 from typing import Any
 
+from lib.compat import GBASE_DATA_DIR
+
 logger = logging.getLogger(__name__)
 
 # ── 路径 ──
-TRACE_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "traces"
-BEST_SKILL_PATH = Path(__file__).resolve().parent.parent.parent / "data" / "best_skill.md"
-REVIEW_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "reviews"
+TRACE_DIR = GBASE_DATA_DIR / "traces"
+BEST_SKILL_PATH = GBASE_DATA_DIR / "best_skill.md"
+REVIEW_DIR = GBASE_DATA_DIR / "reviews"
 
 # ── 模式签名阈值 ──
 _ERROR_SIGNATURE_MERGE_WINDOW = 5  # 同一错误模式在连续5步内出现算一次聚集

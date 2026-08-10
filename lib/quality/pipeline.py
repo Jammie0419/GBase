@@ -15,10 +15,12 @@ import os
 import time
 from pathlib import Path
 
+from lib.compat import GBASE_PIPELINES_DIR
+
 logger = logging.getLogger(__name__)
 
 # Pipeline storage directory
-PIPELINE_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "pipelines"
+PIPELINE_DIR = GBASE_PIPELINES_DIR
 
 
 async def run_gate(

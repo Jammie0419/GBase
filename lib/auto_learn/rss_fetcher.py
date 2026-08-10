@@ -17,6 +17,8 @@ import xml.etree.ElementTree as ET
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+from lib.compat import GBASE_DATA_DIR
+
 logger = logging.getLogger(__name__)
 
 # ═══════════════════════════════════════════════════
@@ -129,7 +131,7 @@ DEFAULT_RSS_TOPICS = [
 # 配置管理
 # ═══════════════════════════════════════════════════
 
-CONFIG_DIR = Path(__file__).parent.parent.parent / "data"
+CONFIG_DIR = GBASE_DATA_DIR
 RSS_TOPICS_PATH = CONFIG_DIR / "rss_topics.json"
 
 

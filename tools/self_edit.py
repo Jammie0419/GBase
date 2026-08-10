@@ -27,6 +27,7 @@ import shutil
 import time
 from pathlib import Path
 
+from lib.compat import GBASE_BACKUP_DIR
 from lib.toolkit import get_global, tool
 
 logger = logging.getLogger(__name__)
@@ -70,8 +71,7 @@ _LIB_SHARED = Path(os.environ.get("GBASE_LIB", "/opt/gbase/lib"))
 if _LIB_SHARED.exists():
     _ALLOWED_DIRS.append(_LIB_SHARED)
 
-_ROLLBACK_DIR = _INSTANCE_HOME / ".gbase_rollback"
-_ROLLBACK_DIR.mkdir(parents=True, exist_ok=True)
+_ROLLBACK_DIR = GBASE_BACKUP_DIR  # Use unified backup directory
 
 
 # ── 路径校验 ──

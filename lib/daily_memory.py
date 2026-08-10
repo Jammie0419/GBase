@@ -15,23 +15,11 @@ import os
 # ─── 配置 ──────────────────────────────────────────
 import time
 from datetime import UTC, datetime
+from pathlib import Path
 
-# 自动检测运行环境：优先用 poseidon-home 本地路径，支持环境变量覆盖
-_GBASE_HOME = os.environ.get("GBASE_HOME", "")
-_CANDIDATE_DIRS = [
-    os.path.join(os.path.dirname(__file__), "..", "data"),  # poseidon-home/data/
-]
-if _GBASE_HOME:
-    _CANDIDATE_DIRS.append(os.path.join(_GBASE_HOME, "data"))  # GBASE_HOME/data（回退）
+from lib.compat import GBASE_DATA_DIR
 
-# 取第一个存在的目录
-for _d in _CANDIDATE_DIRS:
-    _resolved = os.path.realpath(_d)
-    if os.path.isdir(_resolved):
-        DATA_DIR = _resolved
-        break
-else:
-    DATA_DIR = _CANDIDATE_DIRS[0]
+DATA_DIR = str(GBASE_DATA_DIR)
 
 DB_PATH = os.path.join(DATA_DIR, "dat.db")
 MAX_INJECTION_SUMMARIES = 10  # 每次注入摘要数
@@ -238,7 +226,7 @@ def run_daily_extraction_for_arm(arm_name: str = "hammer", data_dir: str = None)
         data_dir: 战甲数据目录，默认 data/arms/{arm_name}/
     """
     if data_dir is None:
-        data_dir = os.path.join(os.path.dirname(__file__), "..", "data", "arms", arm_name)
+        data_dir = os.path.join(str(GBASE_DATA_DIR), "arms", arm_name)
     db_path = os.path.join(data_dir, "dat.db") if os.path.isdir(data_dir) else DB_PATH
 
     session_files = find_session_files(data_dir)
@@ -299,7 +287,7 @@ def inject_cross_session_to_mirror(mirror_engine=None):
     if me is None:
         return 0
 
-    session_dir = os.path.join(os.path.dirname(__file__), "..", "data", "sessions")
+    session_dir = os.path.join(str(GBASE_DATA_DIR), "sessions")
     if not os.path.isdir(session_dir):
         return 0
 
@@ -389,7 +377,7 @@ def get_cross_session_injections(session_dir: str = None, max_recent: int = 3) -
     不等 LLM 主动 recall。
     """
     if session_dir is None:
-        session_dir = os.path.join(os.path.dirname(__file__), "..", "data", "sessions")
+        session_dir = os.path.join(str(GBASE_DATA_DIR), "sessions")
 
     if not os.path.isdir(session_dir):
         return ""

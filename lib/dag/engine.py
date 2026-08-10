@@ -42,8 +42,10 @@ from typing import Any
 
 import yaml
 
+from lib.compat import GBASE_DAG_DIR
+
 # === Configuration ===
-DAG_DIR = Path(os.getenv("GBASE_DAG_DIR", "./data/dag-workflows"))
+DAG_DIR = Path(os.getenv("GBASE_DAG_DIR", str(GBASE_DAG_DIR)))
 MAX_DEPTH = 50  # Maximum DAG depth
 MAX_STEP_TIMEOUT = 300  # Single step timeout (seconds)
 MAX_RETRY = 2  # Maximum retries per step

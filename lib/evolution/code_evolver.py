@@ -26,6 +26,8 @@ import time
 from pathlib import Path
 from typing import Optional
 
+from lib.compat import GBASE_BACKUP_DIR, GBASE_EVOLUTION_DIR
+
 logger = logging.getLogger(__name__)
 
 
@@ -33,7 +35,7 @@ class CodeEvolver:
     """代码进化器 — 用 LLM 生成代码修改，自动进化自身。"""
 
     def __init__(self):
-        self.project_root = Path(__file__).resolve().parent.parent.parent
+        self.project_root = GBASE_HOME
         self._evolution_log = []
 
     async def evolve_from_suggestion_async(self, suggestion: dict) -> bool:
@@ -281,7 +283,7 @@ class CodeEvolver:
     def _backup_file(self, filepath: Path) -> Optional[Path]:
         """备份文件。"""
         try:
-            backup_dir = self.project_root / ".evolution" / "backups"
+            backup_dir = GBASE_BACKUP_DIR
             backup_dir.mkdir(parents=True, exist_ok=True)
 
             timestamp = time.strftime("%Y%m%d_%H%M%S")
@@ -348,7 +350,8 @@ class CodeEvolver:
     def _log_evolution(self, filepath: Path, change_description: str, success: bool):
         """记录进化到日志。"""
         try:
-            log_file = self.project_root / "evolution-log.md"
+            log_file = GBASE_EVOLUTION_DIR / "evolution-log.md"
+            log_file.parent.mkdir(parents=True, exist_ok=True)
 
             existing = ""
             if log_file.exists():

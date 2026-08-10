@@ -6,7 +6,7 @@ tools/write_file.py
 安全约束：
 - Only write within opprime workspace directories
 - 自动Create父Directory
-- [Evolution #7] Auto-backup before overwrite: originals saved to .backups/
+- [Evolution #7] Auto-backup before overwrite: originals saved to .gbase/.backups/
 """
 
 import asyncio

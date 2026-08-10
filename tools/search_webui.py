@@ -27,6 +27,7 @@ from fastapi import FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 
+from lib.compat import GBASE_DATA_DIR
 from lib.fetcher import Fetcher
 
 logger = logging.getLogger("search-webui")
@@ -34,8 +35,8 @@ logger = logging.getLogger("search-webui")
 # ── Config ──────────────────────────────────────────────
 
 DEFAULT_PORT = 8450
-HISTORY_FILE = Path(__file__).resolve().parent.parent / "data" / "search_history.jsonl"
-HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
+HISTORY_FILE = GBASE_DATA_DIR / "search_history.jsonl"
+# Directory will be created when needed
 
 ENGINES_CONFIG = {
     "google": {
@@ -205,6 +206,7 @@ async def _run_honeycomb(query: str, depth: str = "normal") -> dict:
 def _save_history(query: str, engines: list[str], results_count: int):
     """Save search to history JSONL."""
     try:
+        HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
         entry = {
             "id": str(uuid.uuid4())[:8],
             "ts": time.time(),

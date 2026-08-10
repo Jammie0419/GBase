@@ -9,9 +9,10 @@ import json
 import os
 import time
 
+from lib.compat import GBASE_DATA_DIR
 from lib.toolkit import tool
 
-REMINDER_FILE = "data/reminders.json"
+REMINDER_FILE = str(GBASE_DATA_DIR / "reminders.json")
 
 
 def _load_reminders() -> list:

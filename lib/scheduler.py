@@ -19,10 +19,13 @@ import sqlite3
 import sys
 import time
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
+
+from lib.compat import GBASE_DATA_DIR, GBASE_DB_DIR
 
 logger = logging.getLogger(__name__)
 
-DB_PATH = os.environ.get("OPPRIME_CRON_DB", "data/cron.db")
+DB_PATH = os.environ.get("OPPRIME_CRON_DB", str(GBASE_DB_DIR / "cron.db"))
 HEARTBEAT_PATH = os.path.join(tempfile.gettempdir(), "opprime_heartbeat")
 
 # ── Schedule Parsing ────────────────────────────────────────

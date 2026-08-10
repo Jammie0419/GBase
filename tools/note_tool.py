@@ -10,6 +10,7 @@ import os
 from datetime import datetime
 from pathlib import Path
 
+from lib.compat import GBASE_NOTES_DIR
 from lib.toolkit import tool
 
 # ── 笔记存储目录的路径解析用函数，未用模块级常量（避免 import 时固化） ──
@@ -18,8 +19,7 @@ _note_lock = asyncio.Lock()
 
 
 def _notes_dir() -> Path:
-    base = Path(os.environ.get("GBASE_DATA_DIR", "data"))
-    notes = base / "notes"
+    notes = GBASE_NOTES_DIR
     notes.mkdir(parents=True, exist_ok=True)
     return notes
 

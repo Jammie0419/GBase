@@ -13,6 +13,8 @@ import os
 import re
 from pathlib import Path
 
+from lib.compat import GBASE_HOME
+
 logger = logging.getLogger("sandbox")
 
 # ── 需要推演的文件通配 ──
@@ -27,7 +29,7 @@ CRITICAL_FILES = [
     "lib/channels/feishu.py",
     "editions/__init__.py",
     "tools/__init__.py",
-    "data/rules/failure-patterns.md",
+    "rules/EVOLUTION.md",
 ]
 
 CRITICAL_PATTERNS = [
@@ -53,8 +55,8 @@ CRITICAL_PATTERNS = [
 def is_critical(file_path: str) -> bool:
     """判断文件是否属于关键文件，需要走沙箱推演。"""
     rel: str = (
-        str(Path(file_path).relative_to(Path(__file__).parent.parent.parent))
-        if str(file_path).startswith(str(Path(__file__).parent.parent.parent))
+        str(Path(file_path).relative_to(GBASE_HOME))
+        if str(file_path).startswith(str(GBASE_HOME))
         else file_path
     )
     return any(rel.endswith(critical) for critical in CRITICAL_FILES)
@@ -104,7 +106,13 @@ def check_failure_patterns(file_path: str, new_content: str) -> list[str]:
     # FP-004：未验证的 import/依赖
     import_tk = re.findall(r"^from lib\.(\w+) import", new_content, re.MULTILINE)
     for lib in import_tk:
+        # Check in lib/ directory (where the file is)
         lib_path = Path(__file__).parent.parent / f"{lib}.py"
+        # Also check in subdirectories
+        if not lib_path.exists():
+            lib_subdir = Path(__file__).parent.parent / lib / "__init__.py"
+            if lib_subdir.exists():
+                continue
         if not lib_path.exists():
             hits.append(f"FP-004: from lib.{lib} 可能不存在 ({lib_path} not found)")
 

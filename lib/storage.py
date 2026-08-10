@@ -16,13 +16,15 @@ import threading
 import time
 from pathlib import Path
 
+from lib.compat import GBASE_DATA_DIR, GBASE_DB_DIR, GBASE_EXPERIENCE_DIR, GBASE_KNOWLEDGE_DIR, GBASE_SKILLS_DIR
+
 logger = logging.getLogger(__name__)
 
 
 async def _async_self_improving(entry_type: str, entry_data: dict, summary: str):
     """异步触发 self-improving 分析（不阻塞写入）。"""
     try:
-        from .self_improving import trigger_self_improving
+        from .evolution.self_improving import trigger_self_improving
 
         # 构建完整的 entry 包含 summary
         full_entry = {**entry_data, "summary": summary}
@@ -37,10 +39,15 @@ async def _async_self_improving(entry_type: str, entry_data: dict, summary: str)
         logger.debug("self-improving 异常（不影响主流程）: %s", e)
 
 
-DATA_DIR = Path(__file__).parent.parent.parent / "data"
-DB_PATH = DATA_DIR / "dat.db"
+DATA_DIR = GBASE_DATA_DIR
+DB_PATH = GBASE_DB_DIR / "dat.db"
 
-# 三层对应的 JSONL 镜像文件名
+# 三层对应的 JSONL 镜像目录和文件名
+_MIRROR_DIRS = {
+    "experience": GBASE_EXPERIENCE_DIR,
+    "knowledge": GBASE_KNOWLEDGE_DIR,
+    "skills": GBASE_SKILLS_DIR,
+}
 _MIRROR_FILES = {
     "experience": "experience.jsonl",
     "knowledge": "knowledge.jsonl",
@@ -79,6 +86,7 @@ class Storage:
     def setup(self):
         """首次初始化（建表 + 建目录 + WAL 模式）。"""
         os.makedirs(self._data_dir, exist_ok=True)
+        os.makedirs(os.path.dirname(self._db_path) or ".", exist_ok=True)
 
         with self._lock:
             conn = sqlite3.connect(self._db_path, check_same_thread=False)
@@ -202,8 +210,10 @@ class Storage:
             row_id = cursor.lastrowid
             self._conn.commit()
 
-            # 追加 JSONL 镜像
-            mirror_path = self._data_dir / _MIRROR_FILES.get(type_, "unknown.jsonl")
+            # 追加 JSONL 镜像（存到对应功能域目录）
+            mirror_dir = _MIRROR_DIRS.get(type_, self._data_dir)
+            mirror_dir.mkdir(parents=True, exist_ok=True)
+            mirror_path = mirror_dir / _MIRROR_FILES.get(type_, "unknown.jsonl")
             mirror_entry = {
                 "id": row_id,
                 "type": type_,

@@ -30,9 +30,11 @@ import time
 from pathlib import Path
 from typing import Any
 
+from lib.compat import GBASE_HOME, GBASE_DB_DIR
+
 # === 配置 ===
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
-DATA_DIR = BASE_DIR / "data"
+BASE_DIR = GBASE_HOME
+DATA_DIR = GBASE_DB_DIR
 COGNIFOLD_DB = DATA_DIR / "cognifold.db"
 
 # 概念簇参数

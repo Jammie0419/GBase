@@ -19,6 +19,8 @@ from typing import TYPE_CHECKING
 
 import httpx
 
+from lib.compat import GBASE_DATA_DIR
+
 if TYPE_CHECKING:
     from lib.session import JsonlSessionManager
 
@@ -63,7 +65,7 @@ class FeishuChannel:
     @property
     def default_url(self) -> str:
         self.sessions: dict[str, JsonlSessionManager] = {}
-        self._session_base_dir = Path("data/sessions")
+        self._session_base_dir = GBASE_DATA_DIR / "sessions"
         self._session_base_dir.mkdir(parents=True, exist_ok=True)
 
         # 并发控制
@@ -157,7 +159,7 @@ class FeishuChannel:
 
     def _get_download_dir(self) -> Path:
         """返回文件下载目录。"""
-        d = Path("data/received_files")
+        d = GBASE_DATA_DIR / "received_files"
         d.mkdir(parents=True, exist_ok=True)
         return d
 
@@ -789,7 +791,7 @@ class FeishuChannel:
                 tk_set_global("feishu_message_id", message_id)
 
                 # ── Pendling 队列：写任务标记（进程崩溃后恢复用） ──
-                _pending_dir = Path("data/pending")
+                _pending_dir = GBASE_DATA_DIR / "pending"
                 _pending_dir.mkdir(parents=True, exist_ok=True)
                 _pending_file = _pending_dir / f"{message_id}.json"
                 try:

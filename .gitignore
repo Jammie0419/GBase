@@ -24,19 +24,11 @@ build/
 .DS_Store
 Thumbs.db
 
-# Runtime data
-data/chat/sessions/
-data/experience.jsonl
-data/knowledge.jsonl
-data/traces/
-data/reviews/
-data/*.db
-data/*.db-shm
-data/*.db-wal
-data/notes/
-data/logs/
-data/metrics/
-data/archive_trash/
+# GBase runtime data — ALL in .gbase/
+.gbase/
+
+# Legacy data paths (for backwards compatibility during migration)
+data/
 
 # Logs
 logs/
@@ -47,17 +39,17 @@ logs/
 *.bak
 *.bkp
 
-data/search_history.jsonl
-
 # Forge audit
 forge-audit-*.md
 
 # Arms
 arms/
 
-*.pyc
-__pycache__/
-.DS_Store
+# Evolution
+.evolution/
+evolution-log.md
+self-improving-log.md
+HEARTBEAT.md
 
 # Internal work files — NOT for public repository
 HAMMER_TASK.md
@@ -68,14 +60,3 @@ _audit_runner.py
 docs/WHITEPAPER.md
 docs/WHITEPAPER.pdf
 docs/WHITEPAPER.html
-
-# Agent runtime data (may contain personal memories)
-data/arms/
-data/experience.jsonl
-data/knowledge.jsonl
-data/skill_usage.jsonl
-data/sessions/
-data/mirror/
-
-# Agent logs
-logs/

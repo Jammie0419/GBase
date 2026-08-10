@@ -32,6 +32,40 @@ PATH_SEPARATOR = ";" if IS_WINDOWS else ":"  # For env var lists like PATH
 DEFAULT_SHELL = None if IS_WINDOWS else "/bin/bash"  # Windows uses auto-detect
 
 
+# -- GBase Home Directory -------------------------------------------------
+# All runtime data goes into .gbase/ in the project root (cwd).
+# Override with GBASE_HOME environment variable.
+
+def _resolve_gbase_home() -> Path:
+    """Resolve GBASE_HOME: env var > cwd/.gbase"""
+    env = os.environ.get("GBASE_HOME")
+    if env:
+        return Path(env).resolve()
+    return Path.cwd().resolve() / ".gbase"
+
+
+GBASE_HOME = _resolve_gbase_home()
+
+# Standard sub-directories under GBASE_HOME
+GBASE_DATA_DIR = GBASE_HOME / "data"
+GBASE_EVOLUTION_DIR = GBASE_HOME / ".evolution"
+GBASE_BACKUP_DIR = GBASE_HOME / ".backups"
+GBASE_LOG_DIR = GBASE_HOME / "logs"
+
+# Organized sub-directories under data/
+GBASE_DB_DIR = GBASE_DATA_DIR / "db"                    # SQLite databases
+GBASE_EXPERIENCE_DIR = GBASE_DATA_DIR / "experience"    # experience.jsonl, etc.
+GBASE_KNOWLEDGE_DIR = GBASE_DATA_DIR / "knowledge"      # knowledge.jsonl, etc.
+GBASE_SKILLS_DIR = GBASE_DATA_DIR / "skills"            # skills.jsonl, skill files
+GBASE_TRACES_DIR = GBASE_DATA_DIR / "traces"            # call traces
+GBASE_REVIEWS_DIR = GBASE_DATA_DIR / "reviews"          # trace reviews
+GBASE_METRICS_DIR = GBASE_DATA_DIR / "metrics"          # RSI metrics
+GBASE_PIPELINES_DIR = GBASE_DATA_DIR / "pipelines"      # quality gate records
+GBASE_DAG_DIR = GBASE_DATA_DIR / "dag-workflows"        # DAG workflow definitions
+GBASE_NOTES_DIR = GBASE_DATA_DIR / "notes"              # session notes
+GBASE_ARCHIVE_TRASH_DIR = GBASE_DATA_DIR / "archive_trash"  # deleted archive records
+
+
 # -- Environment Variable Helpers -----------------------------------------
 
 
@@ -44,19 +78,18 @@ def get_env_list(name: str, default: str = "") -> list[str]:
 
 
 def get_data_dir() -> Path:
-    """Return the GBase data directory, platform-appropriate."""
-    env_dir = os.environ.get("GBASE_DATA_DIR")
-    if env_dir:
-        return Path(env_dir)
-    return Path.cwd() / "data"
+    """Return the GBase data directory (.gbase/data)."""
+    return GBASE_DATA_DIR
 
 
 def get_log_dir() -> Path:
-    """Return the GBase log directory."""
-    env_dir = os.environ.get("GBASE_LOG_DIR")
-    if env_dir:
-        return Path(env_dir)
-    return get_data_dir() / "logs"
+    """Return the GBase log directory (.gbase/logs)."""
+    return GBASE_LOG_DIR
+
+
+def get_gbase_home() -> Path:
+    """Return the GBase home directory (.gbase)."""
+    return GBASE_HOME
 
 
 def get_temp_path(filename: str) -> Path:
