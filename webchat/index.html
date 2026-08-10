@@ -297,12 +297,16 @@
     transition: all 0.15s;
     flex-shrink: 0;
   }
-  .session-item:hover .session-delete-btn {
+  .session-item:hover .session-delete-btn,
+  .session-item.active .session-delete-btn {
     opacity: 1;
   }
   .session-delete-btn:hover {
     color: var(--danger);
     background: rgba(255,68,102,0.1);
+  }
+  @media (hover: none) {
+    .session-delete-btn { opacity: 0.6; }
   }
   .sidebar-empty {
     padding: 24px 16px;
@@ -1307,11 +1311,15 @@ async function deleteSession(sessionId) {
       alert('删除失败: ' + (err.error || '未知错误'));
       return;
     }
-    // If we deleted the current session, start new chat
+    // If we deleted the current session, reset and start new chat
     if (sessionId === currentSessionId) {
       currentSessionId = null;
       clearChatMessages();
-      addMessage('system', '开始新的对话 ✨');
+      // Tell WebSocket to also reset (create new session on next message)
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'new_session' }));
+      }
+      addMessage('system', '已删除当前对话，开始新的对话 ✨');
     }
     // Refresh list
     await loadSessions();

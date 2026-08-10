@@ -51,6 +51,7 @@ class WebChatChannel:
         self._static_dir = Path(__file__).parent.parent.parent / "webchat"
         self._sessions_dir = Path(self.data_dir) / "sessions"
         self._sessions_dir.mkdir(parents=True, exist_ok=True)
+        self._active_sessions: dict[str, JsonlSessionManager] = {}
 
     def create_app(self, title: str = "GBase Web Chat") -> FastAPI:
         app = FastAPI(title=title)
@@ -112,6 +113,8 @@ class WebChatChannel:
                 return JSONResponse({"error": "session not found"}, status_code=404)
 
             try:
+                # 先关闭文件句柄（Windows 下不关闭无法删除）
+                self._close_session(session_id)
                 filepath.unlink()
                 logger.info("Session deleted: %s", session_id)
                 return {"status": "ok", "session_id": session_id}
@@ -183,7 +186,7 @@ class WebChatChannel:
                             await ws.send_json({"type": "error", "content": "session not found"})
                             continue
                         session_id = load_sid
-                        session_mgr = JsonlSessionManager(str(filepath))
+                        session_mgr = self._get_or_load_session(session_id)
                         # Send history to client
                         messages = self._read_session_messages(str(filepath))
                         await ws.send_json({
@@ -336,7 +339,25 @@ class WebChatChannel:
     def _create_session(self, session_id: str) -> JsonlSessionManager:
         """创建新的会话 JSONL 文件并返回 SessionManager。"""
         filepath = self._sessions_dir / f"{session_id}.jsonl"
-        return JsonlSessionManager(str(filepath))
+        mgr = JsonlSessionManager(str(filepath))
+        self._active_sessions[session_id] = mgr
+        return mgr
+
+    def _get_or_load_session(self, session_id: str) -> JsonlSessionManager:
+        """获取已缓存的 session 或从文件加载。"""
+        if session_id in self._active_sessions:
+            return self._active_sessions[session_id]
+        filepath = self._sessions_dir / f"{session_id}.jsonl"
+        mgr = JsonlSessionManager(str(filepath))
+        self._active_sessions[session_id] = mgr
+        return mgr
+
+    def _close_session(self, session_id: str):
+        """关闭并移除一个 session 的文件句柄。"""
+        mgr = self._active_sessions.pop(session_id, None)
+        if mgr:
+            with contextlib.suppress(Exception):
+                mgr.close()
 
     def _extract_session_meta(self, filepath: str) -> dict:
         """从 JSONL 文件中提取会话元数据（标题、时间、消息数）。"""
